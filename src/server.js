@@ -1,6 +1,4 @@
-// src/server.js - Main Express server
 require("dotenv").config();
-
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -8,47 +6,40 @@ const rateLimit = require("express-rate-limit");
 const path = require("path");
 
 const app = express();
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
 
-// Security middleware
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  message: { error: "Too many requests, please try again later" }
-});
+const limiter = rateLimit({ windowMs: 15*60*1000, max: 100, message: { error: "Too many requests" } });
 app.use("/api/", limiter);
-
-// Strict limit for watch creation
-const watchLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
-  message: { error: "Too many watch requests from this IP" }
-});
+const watchLimiter = rateLimit({ windowMs: 60*60*1000, max: 10, message: { error: "Too many requests" } });
 app.use("/api/watch", watchLimiter);
 
-// API routes
 app.use("/api", require("./routes/api"));
-
-// Serve frontend
 app.use(express.static(path.join(__dirname, "../public")));
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public/index.html"));
-});
+app.get("*", (req, res) => res.sendFile(path.join(__dirname, "../public/index.html")));
 
-// Start server
 app.listen(PORT, () => {
-  console.log(`\n🎯 SeatSniper ASU running on http://localhost:${PORT}\n`);
-
-  // Start the background scheduler
-  const { start } = require("./scheduler");
-  start();
+  console.log(`🎯 SeatSniper ASU running on http://localhost:${PORT}`);
+  (async () => {
+    try {
+      const chromium = require("@sparticuz/chromium");
+      const puppeteer = require("puppeteer-core");
+      const execPath = await chromium.executablePath();
+      console.log("[Boot] Chromium path:", execPath);
+      console.log("[Boot] Chromium exists:", require("fs").existsSync(execPath));
+      const browser = await puppeteer.launch({ args: chromium.args, executablePath: execPath, headless: chromium.headless });
+      console.log("[Boot] ✅ Chromium launched!");
+      await browser.close();
+    } catch(e) {
+      console.error("[Boot] ❌ Chromium failed:", e.message);
+    }
+  })();
+  require("./scheduler").start();
 });
 
 module.exports = app;
