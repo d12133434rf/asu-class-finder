@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SeatSniper ASU — Never Miss an Open Class</title>
+  <meta name="description" content="Get a text the second a class opens at Arizona State University. Free. Instant. No login required." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --maroon: #8C1D40;
+      --maroon-dark: #5C0F28;
+      --gold: #FFC627;
+      --gold-dim: #D4A420;
+      --bg: #080608;
+      --bg2: #100C0E;
+      --surface: #1A1218;
+      --surface2: #221820;
+      --border: rgba(140,29,64,0.3);
+      --text: #F0E8EC;
+      --muted: #8A7880;
+      --green: #3DD68C;
+      --red: #F76E6E;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Noise texture overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(140,29,64,0.35) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 80% 80%, rgba(255,198,39,0.05) 0%, transparent 60%);
+      z-index: 0;
+    }
+
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(140,29,64,0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(140,29,64,0.08) 1px, transparent 1px);
+      background-size: 60px 60px;
+      z-index: 0;
+      mask-image: radial-gradient(ellipse at 50% 0%, black 40%, transparent 80%);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      max-width: 800px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,198,39,0.1);
+      border: 1px solid rgba(255,198,39,0.25);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 28px;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .eyebrow-dot {
+      width: 6px; height: 6px;
+      background: var(--gold);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+
+    h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(72px, 14vw, 140px);
+      line-height: 0.9;
+      letter-spacing: 2px;
+      color: #fff;
+      animation: fadeUp 0.6s 0.1s ease both;
+      margin-bottom: 8px;
+    }
+
+    h1 span {
+      color: var(--gold);
+      display: block;
+    }
+
+    .hero-sub {
+      font-size: clamp(16px, 2.5vw, 20px);
+      color: var(--muted);
+      max-width: 500px;
+      margin: 20px auto 40px;
+      font-weight: 300;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+
+    .hero-sub strong { color: var(--text); font-weight: 500; }
+
+    @keyframes fadeUp {
+      from { opacity:0; transform: translateY(24px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 56px;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 36px;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+
+    /* ── Main Form Card ── */
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px;
+      max-width: 560px;
+      width: 100%;
+      margin: 0 auto;
+      position: relative;
+      animation: fadeUp 0.6s 0.35s ease both;
+      box-shadow: 0 0 80px rgba(140,29,64,0.15);
+    }
+
+    .form-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%; transform: translateX(-50%);
+      width: 200px; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    }
+
+    .form-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      color: #fff;
+    }
+
+    .form-subtitle {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group.full { grid-column: 1 / -1; }
+
+    label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+    }
+
+    input, select {
+      background: var(--surface2);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      padding: 11px 14px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      width: 100%;
+      -webkit-appearance: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(255,198,39,0.1);
+    }
+
+    input::placeholder { color: rgba(138,120,128,0.6); }
+    select option { background: #1A1218; }
+
+    .phone-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface2);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 0 14px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .phone-row:focus-within {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(255,198,39,0.1);
+    }
+
+    .phone-flag {
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .phone-prefix {
+      font-size: 15px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .phone-row input {
+      background: none;
+      border: none;
+      padding: 11px 0;
+      box-shadow: none;
+    }
+
+    .phone-row input:focus { box-shadow: none; border: none; }
+
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      background: var(--gold);
+      color: #1A0C10;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-top: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-submit::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.4s;
+    }
+
+    .btn-submit:hover { background: #FFD147; transform: translateY(-1px); box-shadow: 0 8px 30px rgba(255,198,39,0.3); }
+    .btn-submit:hover::before { left: 100%; }
+    .btn-submit:active { transform: translateY(0); }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .form-note {
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 14px;
+    }
+
+    /* ── Toast / Alert ── */
+    .alert {
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 14px;
+      margin-top: 16px;
+      display: none;
+    }
+
+    .alert.success { background: rgba(61,214,140,0.1); border: 1px solid rgba(61,214,140,0.3); color: var(--green); }
+    .alert.error   { background: rgba(247,110,110,0.1); border: 1px solid rgba(247,110,110,0.3); color: var(--red); }
+    .alert.show    { display: block; }
+
+    /* ── Status Lookup ── */
+    .lookup-section {
+      max-width: 560px;
+      width: 100%;
+      margin: 40px auto 0;
+      animation: fadeUp 0.6s 0.45s ease both;
+    }
+
+    .lookup-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      padding: 10px 20px;
+      cursor: pointer;
+      width: 100%;
+      transition: all 0.15s;
+    }
+
+    .lookup-toggle:hover { border-color: var(--gold); color: var(--gold); }
+
+    .lookup-content {
+      display: none;
+      margin-top: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+    }
+
+    .lookup-content.open { display: block; }
+
+    .lookup-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .lookup-row input { flex: 1; }
+
+    .btn-lookup {
+      padding: 11px 20px;
+      background: var(--maroon);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    .btn-lookup:hover { background: var(--maroon-dark); }
+
+    .watcher-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .watcher-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .watcher-info { flex: 1; }
+
+    .watcher-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      letter-spacing: 0.5px;
+      line-height: 1;
+    }
+
+    .watcher-meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    .watcher-enroll {
+      font-size: 11px;
+      margin-top: 5px;
+    }
+
+    .status-pill {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .status-pill.open    { background: rgba(61,214,140,0.15); color: var(--green); }
+    .status-pill.closed  { background: rgba(247,110,110,0.12); color: var(--red); }
+    .status-pill.pending { background: rgba(255,198,39,0.12); color: var(--gold); }
+    .status-pill.error   { background: rgba(247,110,110,0.1); color: var(--red); }
+
+    .btn-remove-watch {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 13px;
+      padding: 4px 8px;
+      transition: all 0.15s;
+    }
+
+    .btn-remove-watch:hover { border-color: var(--red); color: var(--red); }
+
+    /* ── How it works ── */
+    .how-section {
+      padding: 100px 20px;
+      max-width: 1000px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 13px;
+      letter-spacing: 3px;
+      color: var(--gold);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(40px, 6vw, 72px);
+      letter-spacing: 1px;
+      line-height: 1;
+      margin-bottom: 60px;
+      color: #fff;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 24px;
+    }
+
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      position: relative;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .step:hover { border-color: rgba(255,198,39,0.3); transform: translateY(-3px); }
+
+    .step-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 56px;
+      color: rgba(255,198,39,0.15);
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+
+    .step-title {
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .step-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 20px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      position: relative;
+      z-index: 1;
+    }
+
+    footer strong { color: var(--gold); }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--maroon); border-radius: 3px; }
+
+    @media (max-width: 600px) {
+      .form-row { grid-template-columns: 1fr; }
+      .form-card { padding: 24px 20px; }
+      .stats-bar { gap: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+
+  <div class="hero-content">
+    <div class="eyebrow">
+      <span class="eyebrow-dot"></span>
+      Arizona State University
+    </div>
+
+    <h1>SEAT<span>SNIPER</span></h1>
+
+    <p class="hero-sub">
+      Get a <strong>text message the second</strong> a class seat opens up at ASU.
+      Free. No account. No login.
+    </p>
+
+    <!-- Live Stats -->
+    <div class="stats-bar" id="statsBar">
+      <div class="stat">
+        <div class="stat-num" id="statWatching">—</div>
+        <div class="stat-label">Classes Tracked</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="statAlerts">—</div>
+        <div class="stat-label">Alerts Sent</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">1 min</div>
+        <div class="stat-label">Check Interval</div>
+      </div>
+    </div>
+
+    <!-- Form Card -->
+    <div class="form-card">
+      <div class="form-title">🎯 Watch a Class</div>
+      <div class="form-subtitle">Enter the class details from <a href="https://classSearch.asu.edu" target="_blank" style="color:var(--gold)">classSearch.asu.edu</a></div>
+
+      <form id="watchForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Subject</label>
+            <input id="subject" type="text" placeholder="e.g. CSE" maxlength="10" required autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label>Catalog #</label>
+            <input id="catalogNumber" type="text" placeholder="e.g. 330" maxlength="10" required autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>5-Digit Class #</label>
+            <input id="classNumber" type="number" placeholder="e.g. 64766" required />
+          </div>
+          <div class="form-group">
+            <label>Term</label>
+            <select id="term" required>
+              <option value="">Loading...</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group full">
+            <label>Your Phone Number (US)</label>
+            <div class="phone-row">
+              <span class="phone-flag">🇺🇸</span>
+              <span class="phone-prefix">+1</span>
+              <input id="phone" type="tel" placeholder="(480) 555-1234" maxlength="14" required />
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submitBtn">
+          🔔 NOTIFY ME WHEN IT OPENS
+        </button>
+
+        <div class="form-note">We only text you when the class opens. No spam, ever.</div>
+
+        <div class="alert" id="formAlert"></div>
+      </form>
+    </div>
+
+    <!-- Status Lookup -->
+    <div class="lookup-section">
+      <button class="lookup-toggle" id="lookupToggle">📋 Check your active watches</button>
+      <div class="lookup-content" id="lookupContent">
+        <div class="lookup-row">
+          <input type="tel" id="lookupPhone" placeholder="Your phone number" />
+          <button class="btn-lookup" id="lookupBtn">Look up</button>
+        </div>
+        <div id="watcherList"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-section">
+  <div class="section-label">How it works</div>
+  <div class="section-title">THREE STEPS.<br>ZERO STRESS.</div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-title">Enter your class</div>
+      <div class="step-desc">Find the 5-digit class number on ASU's class search and enter it above along with your phone number.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-title">We watch 24/7</div>
+      <div class="step-desc">Our server checks ASU's enrollment data every minute, around the clock — even when you're asleep.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-title">Get the text</div>
+      <div class="step-desc">The instant a seat opens, you get a text. Register before anyone else even knows it's available.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <div class="step-title">Register fast</div>
+      <div class="step-desc">Log into my.asu.edu and register. Seats go fast — we make sure you're first to know.</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>Made for ASU students by an ASU student &nbsp;·&nbsp; <strong>SeatSniper</strong> &nbsp;·&nbsp; Not affiliated with Arizona State University</p>
+</footer>
+
+<script>
+  const API = "";
+
+  // ── Load terms ──────────────────────────────────────────────────────────────
+  async function loadTerms() {
+    try {
+      const res = await fetch(`${API}/api/terms`);
+      const { terms } = await res.json();
+      const select = document.getElementById("term");
+      select.innerHTML = terms.map((t, i) =>
+        `<option value="${t.code}"${i === terms.length - 1 ? " selected" : ""}>${t.label}</option>`
+      ).join("");
+    } catch(e) {
+      document.getElementById("term").innerHTML = `
+        <option value="2261">Fall 2025</option>
+        <option value="2271">Spring 2026</option>
+        <option value="2277">Summer 2026</option>
+        <option value="2281" selected>Fall 2026</option>`;
+    }
+  }
+
+  // ── Load stats ──────────────────────────────────────────────────────────────
+  async function loadStats() {
+    try {
+      const res = await fetch(`${API}/api/stats`);
+      const data = await res.json();
+      document.getElementById("statWatching").textContent = data.total_watching ?? 0;
+      document.getElementById("statAlerts").textContent = data.total_alerts_sent ?? 0;
+    } catch(e) {}
+  }
+
+  // ── Format phone ────────────────────────────────────────────────────────────
+  document.getElementById("phone").addEventListener("input", (e) => {
+    let v = e.target.value.replace(/\D/g, "").substring(0, 10);
+    if (v.length >= 7) v = `(${v.slice(0,3)}) ${v.slice(3,6)}-${v.slice(6)}`;
+    else if (v.length >= 4) v = `(${v.slice(0,3)}) ${v.slice(3)}`;
+    else if (v.length >= 1) v = `(${v}`;
+    e.target.value = v;
+  });
+
+  // ── Submit form ─────────────────────────────────────────────────────────────
+  document.getElementById("watchForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("submitBtn");
+    const alert = document.getElementById("formAlert");
+
+    btn.disabled = true;
+    btn.textContent = "SENDING...";
+    alert.className = "alert";
+    alert.textContent = "";
+
+    const termSelect = document.getElementById("term");
+    const termLabel = termSelect.options[termSelect.selectedIndex]?.text || "";
+
+    const body = {
+      phone: document.getElementById("phone").value,
+      subject: document.getElementById("subject").value.trim().toUpperCase(),
+      catalogNumber: document.getElementById("catalogNumber").value.trim(),
+      classNumber: document.getElementById("classNumber").value.trim(),
+      term: termSelect.value,
+      termLabel
+    };
+
+    try {
+      const res = await fetch(`${API}/api/watch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        alert.className = "alert success show";
+        alert.textContent = "✅ " + data.message;
+        e.target.reset();
+        loadTerms();
+        loadStats();
+      } else {
+        alert.className = "alert error show";
+        alert.textContent = "❌ " + (data.error || "Something went wrong");
+      }
+    } catch(err) {
+      alert.className = "alert error show";
+      alert.textContent = "❌ Network error — please try again";
+    }
+
+    btn.disabled = false;
+    btn.textContent = "🔔 NOTIFY ME WHEN IT OPENS";
+  });
+
+  // ── Lookup toggle ───────────────────────────────────────────────────────────
+  document.getElementById("lookupToggle").addEventListener("click", () => {
+    document.getElementById("lookupContent").classList.toggle("open");
+  });
+
+  document.getElementById("lookupBtn").addEventListener("click", lookupWatches);
+  document.getElementById("lookupPhone").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") lookupWatches();
+  });
+
+  async function lookupWatches() {
+    const phone = document.getElementById("lookupPhone").value.replace(/\D/g, "");
+    if (!phone) return;
+
+    const listEl = document.getElementById("watcherList");
+    listEl.innerHTML = `<p style="color:var(--muted);font-size:14px">Loading...</p>`;
+
+    try {
+      const res = await fetch(`${API}/api/status/${phone}`);
+      const { watchers } = await res.json();
+
+      if (!watchers || watchers.length === 0) {
+        listEl.innerHTML = `<p style="color:var(--muted);font-size:14px">No active watches found for that number.</p>`;
+        return;
+      }
+
+      listEl.innerHTML = `<div class="watcher-list">${watchers.map(w => {
+        const statusClass = w.status === "open" ? "open" : w.status === "closed" ? "closed" : w.status === "error" ? "error" : "pending";
+        const statusLabel = w.status === "open" ? "OPEN" : w.status === "closed" ? "FULL" : w.status === "error" ? "ERROR" : "CHECKING";
+        const enroll = w.enroll_cap ? `${w.enroll_total}/${w.enroll_cap} enrolled` : "";
+        return `
+          <div class="watcher-card">
+            <div class="watcher-info">
+              <div class="watcher-name">${w.subject} ${w.catalog_number}</div>
+              <div class="watcher-meta">${w.term_label} · #${w.class_number}${w.class_title ? ` · ${w.class_title}` : ""}</div>
+              ${enroll ? `<div class="watcher-enroll" style="color:var(--muted)">${enroll}</div>` : ""}
+            </div>
+            <span class="status-pill ${statusClass}">${statusLabel}</span>
+            <button class="btn-remove-watch" onclick="removeWatch(${w.id})">✕</button>
+          </div>`;
+      }).join("")}</div>`;
+    } catch(e) {
+      listEl.innerHTML = `<p style="color:var(--red);font-size:14px">Error loading watches.</p>`;
+    }
+  }
+
+  async function removeWatch(id) {
+    const phone = document.getElementById("lookupPhone").value.replace(/\D/g, "");
+    if (!confirm("Stop watching this class?")) return;
+    await fetch(`${API}/api/watch/${id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone })
+    });
+    lookupWatches();
+    loadStats();
+  }
+
+  // ── Init ────────────────────────────────────────────────────────────────────
+  loadTerms();
+  loadStats();
+  setInterval(loadStats, 30000);
+</script>
+</body>
+</html>
