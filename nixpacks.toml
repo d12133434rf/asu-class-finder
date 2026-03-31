@@ -1,8 +1,0 @@
-[phases.setup]
-nixPkgs = ["nodejs_20", "nss", "nspr", "atk", "at-spi2-atk", "cups", "dbus", "expat", "libdrm", "libxkbcommon", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "xorg.libxcb", "mesa", "pango", "cairo", "glib", "gtk3", "alsa-lib"]
-
-[phases.build]
-cmds = ["npm install"]
-
-[start]
-cmd = "node src/server.js"
