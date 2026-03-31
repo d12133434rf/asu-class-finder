@@ -1,4 +1,4 @@
-// src/checker.js - Uses Puppeteer with system Chromium
+// src/checker.js
 const fetch = require("node-fetch");
 
 const BASE = "https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes";
@@ -9,11 +9,12 @@ let tokenExpiry = 0;
 async function getToken() {
   if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
 
-  console.log("[Auth] Getting fresh token via Puppeteer...");
+  console.log("[Auth] Launching Puppeteer...");
 
   const puppeteer = require("puppeteer");
   const browser = await puppeteer.launch({
     headless: "new",
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -21,36 +22,57 @@ async function getToken() {
       "--disable-gpu",
       "--no-first-run",
       "--no-zygote",
-      "--single-process"
+      "--single-process",
+      "--disable-extensions"
     ]
   });
 
+  console.log("[Auth] Browser launched, opening page...");
   const page = await browser.newPage();
   let token = null;
+  let requestCount = 0;
 
   await page.setRequestInterception(true);
   page.on("request", req => {
+    requestCount++;
     const auth = req.headers()["authorization"];
-    if (auth && auth.startsWith("Bearer ") && req.url().includes("eadvs-cscc-catalog-api")) {
-      token = auth.replace("Bearer ", "");
-      console.log("[Auth] ✅ Token captured!");
+    const url = req.url();
+    if (url.includes("eadvs-cscc-catalog-api")) {
+      console.log(`[Auth] API request detected: ${url.substring(0, 80)}`);
+      console.log(`[Auth] Auth header: ${auth ? auth.substring(0, 40) : "NONE"}`);
+      if (auth && auth.startsWith("Bearer ")) {
+        token = auth.replace("Bearer ", "");
+        console.log("[Auth] ✅ Token captured!");
+      }
     }
     req.continue();
   });
 
+  page.on("response", async res => {
+    if (res.url().includes("eadvs-cscc-catalog-api")) {
+      console.log(`[Auth] API response: ${res.status()} for ${res.url().substring(0, 80)}`);
+    }
+  });
+
   try {
+    console.log("[Auth] Navigating to classSearch.asu.edu...");
     await page.goto("https://classSearch.asu.edu/?campusOrOnlineSelection=A&searchType=all&term=2281", {
       waitUntil: "networkidle0",
       timeout: 45000
     });
+    console.log(`[Auth] Page loaded. Total requests intercepted: ${requestCount}`);
+    console.log("[Auth] Page title:", await page.title());
     await new Promise(r => setTimeout(r, 5000));
+    console.log(`[Auth] After wait. Token captured: ${token ? "YES" : "NO"}`);
   } catch(e) {
-    console.warn("[Auth] Page load error:", e.message);
+    console.error("[Auth] Navigation error:", e.message);
+    console.log(`[Auth] Requests so far: ${requestCount}, token: ${token ? "YES" : "NO"}`);
   }
 
   await browser.close();
+  console.log("[Auth] Browser closed.");
 
-  if (!token) throw new Error("Could not capture token");
+  if (!token) throw new Error("Could not capture token from ASU page");
 
   cachedToken = token;
   tokenExpiry = Date.now() + 50 * 60 * 1000;
@@ -76,11 +98,8 @@ async function checkClass(classNumber, term) {
     }
   });
 
-  if (res.status === 401) {
-    cachedToken = null;
-    tokenExpiry = 0;
-    throw new Error("AUTH_REQUIRED");
-  }
+  console.log(`[Checker] Response: ${res.status}`);
+  if (res.status === 401) { cachedToken = null; tokenExpiry = 0; throw new Error("AUTH_REQUIRED"); }
   if (!res.ok) throw new Error(`HTTP_${res.status}`);
 
   const data = await res.json();
