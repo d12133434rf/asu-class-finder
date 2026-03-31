@@ -25,20 +25,6 @@ app.get("*", (req, res) => res.sendFile(path.join(__dirname, "../public/index.ht
 
 app.listen(PORT, () => {
   console.log(`🎯 SeatSniper ASU running on http://localhost:${PORT}`);
-  (async () => {
-    try {
-      const chromium = require("@sparticuz/chromium");
-      const puppeteer = require("puppeteer-core");
-      const execPath = await chromium.executablePath();
-      console.log("[Boot] Chromium path:", execPath);
-      console.log("[Boot] Chromium exists:", require("fs").existsSync(execPath));
-      const browser = await puppeteer.launch({ args: chromium.args, executablePath: execPath, headless: chromium.headless });
-      console.log("[Boot] ✅ Chromium launched!");
-      await browser.close();
-    } catch(e) {
-      console.error("[Boot] ❌ Chromium failed:", e.message);
-    }
-  })();
   require("./scheduler").start();
 });
 
