@@ -3,11 +3,11 @@ const axios = require('axios');
 const BASE = "https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes";
 
 async function checkClass(classNumber, term) {
-  // This pulls the cookie you pasted into the Railway dashboard
+  const token = process.env.ASU_AUTH_TOKEN;
   const cookie = process.env.ASU_SESSION_COOKIE;
-  
-  if (!cookie) {
-    console.error("[Checker] ERROR: ASU_SESSION_COOKIE is missing in Railway variables!");
+
+  if (!token && !cookie) {
+    console.error("[Checker] ERROR: No Auth Token or Cookie found in Railway variables!");
     throw new Error("AUTH_REQUIRED");
   }
 
@@ -25,7 +25,9 @@ async function checkClass(classNumber, term) {
       params,
       headers: {
         "Accept": "application/json",
-        "Cookie": cookie,
+        // Uses the Bearer token if you provided it, otherwise falls back to Cookie
+        "Authorization": token ? `Bearer ${token}` : undefined,
+        "Cookie": cookie || undefined,
         "Origin": "https://classSearch.asu.edu",
         "Referer": "https://classSearch.asu.edu/",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
@@ -52,6 +54,7 @@ async function checkClass(classNumber, term) {
 
   } catch (error) {
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      console.error("[Checker] Auth expired or invalid.");
       throw new Error("AUTH_REQUIRED");
     }
     throw error;
