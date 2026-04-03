@@ -1,11 +1,10 @@
 {
   "name": "seatsniper-asu",
   "version": "1.0.0",
-  "description": "ASU class seat availability tracker with SMS notifications",
+  "description": "ASU class seat availability tracker",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "start": "node src/server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -18,11 +17,6 @@
     "cors": "^2.8.5",
     "helmet": "^7.1.0",
     "express-rate-limit": "^7.1.5",
-    "puppeteer": "^21.6.1",
     "stripe": "^14.0.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
-  },
-  "config": {}
+  }
 }
