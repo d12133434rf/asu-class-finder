@@ -651,6 +651,118 @@
   </div>
 </section>
 
+
+<!-- PRICING -->
+<section class="pricing-section" id="pricing">
+  <div class="section-label">Pricing</div>
+  <div class="section-title">PICK YOUR<br>PLAN.</div>
+  <div class="pricing-grid">
+    <div class="pricing-card">
+      <div class="plan-name">Bronze</div>
+      <div class="plan-price">$1<span>/mo</span></div>
+      <div class="plan-desc">Perfect for tracking one class</div>
+      <ul class="plan-features">
+        <li>✓ Watch 1 class</li>
+        <li>✓ SMS alerts</li>
+        <li>✓ 1-minute checks</li>
+      </ul>
+      <button class="btn-plan" onclick="subscribe('bronze')">Get Bronze</button>
+    </div>
+    <div class="pricing-card popular">
+      <div class="popular-badge">MOST POPULAR</div>
+      <div class="plan-name">Silver</div>
+      <div class="plan-price">$3<span>/mo</span></div>
+      <div class="plan-desc">For students juggling multiple classes</div>
+      <ul class="plan-features">
+        <li>✓ Watch 3 classes</li>
+        <li>✓ SMS alerts</li>
+        <li>✓ 1-minute checks</li>
+      </ul>
+      <button class="btn-plan btn-plan-gold" onclick="subscribe('silver')">Get Silver</button>
+    </div>
+    <div class="pricing-card">
+      <div class="plan-name">Gold</div>
+      <div class="plan-price">$8<span>/mo</span></div>
+      <div class="plan-desc">Unlimited watching for power users</div>
+      <ul class="plan-features">
+        <li>✓ Unlimited classes</li>
+        <li>✓ SMS alerts</li>
+        <li>✓ 1-minute checks</li>
+        <li>✓ Priority support</li>
+      </ul>
+      <button class="btn-plan" onclick="subscribe('gold')">Get Gold</button>
+    </div>
+  </div>
+  <p style="text-align:center;color:var(--muted);font-size:13px;margin-top:24px">Cancel anytime. No hidden fees.</p>
+</section>
+
+<style>
+.pricing-section {
+  padding: 100px 20px;
+  max-width: 1000px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+  margin-top: 48px;
+}
+.pricing-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px;
+  position: relative;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.pricing-card:hover { transform: translateY(-4px); border-color: rgba(255,198,39,0.3); }
+.pricing-card.popular { border-color: var(--gold); background: linear-gradient(135deg, var(--surface) 60%, rgba(255,198,39,0.05)); }
+.popular-badge {
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  background: var(--gold); color: var(--maroon-dark);
+  font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 1px;
+  padding: 3px 16px; border-radius: 20px;
+}
+.plan-name { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; color: #fff; }
+.plan-price { font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--gold); line-height: 1; margin: 8px 0; }
+.plan-price span { font-size: 20px; color: var(--muted); }
+.plan-desc { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+.plan-features { list-style: none; margin-bottom: 28px; display: flex; flex-direction: column; gap: 8px; }
+.plan-features li { font-size: 14px; color: var(--text); }
+.btn-plan {
+  width: 100%; padding: 12px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text);
+  font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 1px;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-plan:hover { border-color: var(--gold); color: var(--gold); }
+.btn-plan-gold { background: var(--gold) !important; color: var(--maroon-dark) !important; border-color: var(--gold) !important; }
+.btn-plan-gold:hover { background: #FFD147 !important; }
+</style>
+
+<script>
+async function subscribe(plan) {
+  const phone = prompt("Enter your phone number to subscribe:");
+  if (!phone) return;
+  try {
+    const res = await fetch("/api/subscription/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, plan })
+    });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+    else alert("Error: " + (data.error || "Could not start checkout"));
+  } catch(e) {
+    alert("Network error, please try again");
+  }
+}
+</script>
+
 <!-- HOW IT WORKS -->
 <section class="how-section">
   <div class="section-label">How it works</div>
