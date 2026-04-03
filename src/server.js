@@ -9,6 +9,9 @@ const app = express();
 app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
 
+// Stripe webhook needs raw body — must be before express.json()
+app.use("/api/subscription/webhook", express.raw({ type: "application/json" }));
+
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json());
@@ -20,6 +23,8 @@ const watchLimiter = rateLimit({ windowMs: 60*60*1000, max: 10, message: { error
 app.use("/api/watch", watchLimiter);
 
 app.use("/api", require("./routes/api"));
+app.use("/api/subscription", require("./routes/stripe"));
+
 app.use(express.static(path.join(__dirname, "../public")));
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "../public/index.html")));
 
