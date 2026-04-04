@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0049)file:///C:/Users/georg/Downloads/index%20(4).html -->
+<!-- saved from url=(0049)file:///C:/Users/georg/Downloads/index%20(5).html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -133,7 +133,7 @@
   <div class="nav-links">
     <button class="nav-btn nav-ghost" onclick="showPage(&#39;pricing&#39;)">Pricing</button>
     <button class="nav-btn nav-ghost" id="navLoginBtn" onclick="openModal(&#39;login&#39;)">Log In</button>
-    <button class="nav-btn nav-gold" id="navSignupBtn" onclick="openModal(&#39;signup&#39;)">Sign Up Free</button>
+    <button class="nav-btn nav-gold" id="navSignupBtn" onclick="openModal(&#39;signup&#39;)">Get Started</button>
   </div>
 </nav>
 
@@ -175,7 +175,7 @@
     <div class="hero-content">
       <div class="eyebrow"><span class="eyebrow-dot"></span>Arizona State University</div>
       <h1>SEAT<span>SNIPER</span></h1>
-      <p class="hero-sub">Get a <strong>text the second</strong> a class seat opens at ASU. Free to start.</p>
+      <p class="hero-sub">Get a <strong>text the second</strong> a class seat opens at ASU. Plans from $2/month.</p>
       <div class="stats-bar">
         <div class="stat"><div class="stat-num" id="statWatching">—</div><div class="stat-label">Classes Tracked</div></div>
         <div class="stat"><div class="stat-num" id="statAlerts">—</div><div class="stat-label">Alerts Sent</div></div>
@@ -191,7 +191,7 @@
     <div class="sec-lbl">How it works</div>
     <div class="sec-title">THREE STEPS.<br>ZERO STRESS.</div>
     <div class="steps">
-      <div class="step"><div class="step-num">01</div><div class="step-title">Create account</div><div class="step-desc">Sign up free in 30 seconds with email or Google.</div></div>
+      <div class="step"><div class="step-num">01</div><div class="step-title">Create account</div><div class="step-desc">Create an account in 30 seconds with email or Google.</div></div>
       <div class="step"><div class="step-num">02</div><div class="step-title">Add a class</div><div class="step-desc">Enter the 5-digit class number from ASU's class search.</div></div>
       <div class="step"><div class="step-num">03</div><div class="step-title">We watch 24/7</div><div class="step-desc">Our server checks every minute — even while you sleep.</div></div>
       <div class="step"><div class="step-num">04</div><div class="step-title">Get the text</div><div class="step-desc">Instant SMS the moment a seat opens. Register before anyone else.</div></div>
@@ -220,7 +220,7 @@
       <button class="btn-ap" onclick="promptAddPhone()">Add Phone</button>
     </div>
     <div id="upgradeBanner" style="display:none" class="up-ban">
-      <p>You've reached your <strong>free plan limit</strong>. Upgrade to watch more classes!</p>
+      <p>You've reached your class watch limit. Upgrade your plan to watch more!</p>
       <button class="btn-up" onclick="showPage(&#39;pricing&#39;)">UPGRADE NOW</button>
     </div>
     <div class="add-card">
@@ -248,31 +248,25 @@
   <div class="pricing-page">
     <div class="sec-lbl">Pricing</div>
     <div class="pg-title">PICK YOUR PLAN.</div>
-    <div class="pg-sub">Start free. Upgrade anytime. Cancel anytime.</div>
+    <div class="pg-sub">No free tier — every plan gets full access. Cancel anytime.</div>
     <div class="pricing-grid">
       <div class="pc">
-        <div class="pn">Free</div><div class="pp">$0<span>/mo</span></div>
-        <div class="pd">No credit card needed</div>
-        <ul class="pf"><li>✓ Watch 1 class</li><li>✓ SMS alerts</li><li>✓ 1-minute checks</li></ul>
-        <div id="freePlanBtn"><button class="btn-plan" onclick="openModal(&#39;signup&#39;)">Get Started Free</button></div>
-      </div>
-      <div class="pc">
-        <div class="pn">Bronze</div><div class="pp">$1<span>/mo</span></div>
-        <div class="pd">Perfect for one class at a time</div>
-        <ul class="pf"><li>✓ Watch 1 class</li><li>✓ SMS alerts</li><li>✓ 1-minute checks</li></ul>
+        <div class="pn">Bronze</div><div class="pp">$2<span>/mo</span></div>
+        <div class="pd">Perfect for tracking one class</div>
+        <ul class="pf"><li>✓ Watch 1 class</li><li>✓ Instant SMS alerts</li><li>✓ 1-minute checks</li></ul>
         <div id="bronzePlanBtn"><button class="btn-plan" onclick="subscribe(&#39;bronze&#39;)">Get Bronze</button></div>
       </div>
       <div class="pc pop">
         <div class="pop-b">MOST POPULAR</div>
         <div class="pn">Silver</div><div class="pp">$3<span>/mo</span></div>
         <div class="pd">For students juggling multiple classes</div>
-        <ul class="pf"><li>✓ Watch 3 classes</li><li>✓ SMS alerts</li><li>✓ 1-minute checks</li></ul>
+        <ul class="pf"><li>✓ Watch 3 classes</li><li>✓ Instant SMS alerts</li><li>✓ 1-minute checks</li></ul>
         <div id="silverPlanBtn"><button class="btn-plan btn-pf" onclick="subscribe(&#39;silver&#39;)">Get Silver</button></div>
       </div>
       <div class="pc">
-        <div class="pn">Gold</div><div class="pp">$8<span>/mo</span></div>
-        <div class="pd">Unlimited for power users</div>
-        <ul class="pf"><li>✓ Unlimited classes</li><li>✓ SMS alerts</li><li>✓ 1-minute checks</li><li>✓ Priority support</li></ul>
+        <div class="pn">Gold</div><div class="pp">$7<span>/mo</span></div>
+        <div class="pd">Maximum coverage for serious students</div>
+        <ul class="pf"><li>✓ Watch 10 classes</li><li>✓ Instant SMS alerts</li><li>✓ &lt;1 minute checks</li><li>✓ Priority support</li></ul>
         <div id="goldPlanBtn"><button class="btn-plan" onclick="subscribe(&#39;gold&#39;)">Get Gold</button></div>
       </div>
     </div>
@@ -321,7 +315,7 @@ async function subscribe(plan){if(!currentUser){openModal("signup");return;}try{
 
 async function manageBilling(){if(!currentUser){openModal("login");return;}try{const d=await api("/api/subscription/portal",{method:"POST"});if(d.url)window.location.href=d.url;}catch(e){alert("No active subscription found. Subscribe to a plan first!");}}
 
-function updatePricingBtns(){const plan=currentUser?.plan||"free";["free","bronze","silver","gold"].forEach(p=>{const el=document.getElementById(p+"PlanBtn");if(!el)return;if(p===plan){el.innerHTML=`<span class="cur-plan">✓ Current Plan</span>`;}else if(p==="free"){el.innerHTML=currentUser?`<button class="btn-plan" onclick="showPage('dashboard')">Go to Dashboard</button>`:`<button class="btn-plan" onclick="openModal('signup')">Get Started Free</button>`;}else{const ft=p==="silver"?"btn-pf":"";el.innerHTML=`<button class="btn-plan ${ft}" onclick="subscribe('${p}')">${plan!=="free"?"Switch to ":"Get "}${p.charAt(0).toUpperCase()+p.slice(1)}</button>`;}});}
+function updatePricingBtns(){const plan=currentUser?.plan||"free";["free","bronze","silver","gold"].forEach(p=>{const el=document.getElementById(p+"PlanBtn");if(!el)return;if(p===plan){el.innerHTML=`<span class="cur-plan">✓ Current Plan</span>`;}else if(p==="free"){el.innerHTML=currentUser?`<button class="btn-plan" onclick="showPage('dashboard')">Go to Dashboard</button>`:`<button class="btn-plan" onclick="showPage('pricing')">Get Started</button>`;}else{const ft=p==="silver"?"btn-pf":"";el.innerHTML=`<button class="btn-plan ${ft}" onclick="subscribe('${p}')">${plan!=="free"?"Switch to ":"Get "}${p.charAt(0).toUpperCase()+p.slice(1)}</button>`;}});}
 
 async function loadStats(){try{const d=await api("/api/stats");document.getElementById("statWatching").textContent=d.total_watching??0;document.getElementById("statAlerts").textContent=d.total_alerts_sent??0;}catch(e){}}
 
