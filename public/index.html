@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0049)file:///C:/Users/georg/Downloads/index%20(5).html -->
+<!-- saved from url=(0049)file:///C:/Users/georg/Downloads/index%20(7).html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -197,6 +197,30 @@
       <div class="step"><div class="step-num">04</div><div class="step-title">Get the text</div><div class="step-desc">Instant SMS the moment a seat opens. Register before anyone else.</div></div>
     </div>
   </section>
+  
+  <!-- HELP SECTION -->
+  <section style="padding:80px 20px;max-width:600px;margin:0 auto;position:relative;z-index:1">
+    <div class="sec-lbl">Support</div>
+    <div class="sec-title" style="font-size:clamp(36px,5vw,60px)">CONTACT US</div>
+    <p style="color:var(--muted);font-size:15px;margin-bottom:32px">Have a question, issue, or feedback? Fill out the form below and we'll get back to you within 24 hours.</p>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px">
+      <div class="fg" style="margin-bottom:18px">
+        <label>Name</label>
+        <input type="text" id="contactName" placeholder="Your name">
+      </div>
+      <div class="fg" style="margin-bottom:18px">
+        <label>Email</label>
+        <input type="email" id="contactEmail" placeholder="you@email.com">
+      </div>
+      <div class="fg" style="margin-bottom:18px">
+        <label>Message</label>
+        <textarea id="contactMessage" placeholder="Describe your issue or question..." style="background:var(--surface2);border:1px solid rgba(255,255,255,.07);border-radius:10px;color:var(--text);font-family:&#39;DM Sans&#39;,sans-serif;font-size:15px;padding:11px 14px;outline:none;width:100%;min-height:140px;resize:vertical;transition:border-color .15s" onfocus="this.style.borderColor=&#39;var(--gold)&#39;" onblur="this.style.borderColor=&#39;rgba(255,255,255,.07)&#39;"></textarea>
+      </div>
+      <button class="btn-p" id="contactSubmitBtn" onclick="handleContactSubmit()" style="margin-top:0">SEND MESSAGE</button>
+      <div class="al" id="contactAlert" style="margin-top:12px"></div>
+    </div>
+    <p style="color:var(--muted);font-size:13px;margin-top:16px;text-align:center">Or email us directly at <a href="mailto:asuseatsniper@gmail.com" style="color:var(--gold)">asuseatsniper@gmail.com</a></p>
+  </section>
   <footer><p>Made for ASU students &nbsp;·&nbsp; <strong>SeatSniper</strong> &nbsp;·&nbsp; Not affiliated with Arizona State University</p></footer>
 </div>
 
@@ -272,6 +296,30 @@
     </div>
     <p style="text-align:center;color:var(--muted);font-size:13px;margin-top:24px">Cancel anytime via billing portal. No hidden fees.</p>
   </div>
+  
+  <!-- HELP SECTION -->
+  <section style="padding:80px 20px;max-width:600px;margin:0 auto;position:relative;z-index:1">
+    <div class="sec-lbl">Support</div>
+    <div class="sec-title" style="font-size:clamp(36px,5vw,60px)">CONTACT US</div>
+    <p style="color:var(--muted);font-size:15px;margin-bottom:32px">Have a question, issue, or feedback? Fill out the form below and we'll get back to you within 24 hours.</p>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px">
+      <div class="fg" style="margin-bottom:18px">
+        <label>Name</label>
+        <input type="text" id="contactName" placeholder="Your name">
+      </div>
+      <div class="fg" style="margin-bottom:18px">
+        <label>Email</label>
+        <input type="email" id="contactEmail" placeholder="you@email.com">
+      </div>
+      <div class="fg" style="margin-bottom:18px">
+        <label>Message</label>
+        <textarea id="contactMessage" placeholder="Describe your issue or question..." style="background:var(--surface2);border:1px solid rgba(255,255,255,.07);border-radius:10px;color:var(--text);font-family:&#39;DM Sans&#39;,sans-serif;font-size:15px;padding:11px 14px;outline:none;width:100%;min-height:140px;resize:vertical;transition:border-color .15s" onfocus="this.style.borderColor=&#39;var(--gold)&#39;" onblur="this.style.borderColor=&#39;rgba(255,255,255,.07)&#39;"></textarea>
+      </div>
+      <button class="btn-p" id="contactSubmitBtn" onclick="handleContactSubmit()" style="margin-top:0">SEND MESSAGE</button>
+      <div class="al" id="contactAlert" style="margin-top:12px"></div>
+    </div>
+    <p style="color:var(--muted);font-size:13px;margin-top:16px;text-align:center">Or email us directly at <a href="mailto:asuseatsniper@gmail.com" style="color:var(--gold)">asuseatsniper@gmail.com</a></p>
+  </section>
   <footer><p>Made for ASU students &nbsp;·&nbsp; <strong>SeatSniper</strong> &nbsp;·&nbsp; Not affiliated with Arizona State University</p></footer>
 </div>
 
@@ -326,6 +374,49 @@ document.getElementById("signupPassword").addEventListener("keydown",e=>{if(e.ke
 if(window.location.search.includes("success=true")){setTimeout(()=>{alert("🎉 Subscription activated! Your plan has been upgraded.");},500);}
 
 (async()=>{await checkAuth();loadStats();setInterval(loadStats,30000);if(window.google)initGoogle();else window.addEventListener("load",initGoogle);const path=window.location.pathname;if(path==="/pricing")showPage("pricing");else if(path==="/dashboard"&&authToken)showPage("dashboard");})();
+</script>
+
+<script src="./SeatSniper ASU — Never Miss an Open Class_files/email.min.js.download"></script>
+<script>
+  emailjs.init("dm_155-1Ykocv0LOX");
+
+  async function handleContactSubmit() {
+    const name = document.getElementById("contactName").value.trim();
+    const email = document.getElementById("contactEmail").value.trim();
+    const message = document.getElementById("contactMessage").value.trim();
+    const btn = document.getElementById("contactSubmitBtn");
+    const alert = document.getElementById("contactAlert");
+
+    alert.className = "al";
+    if (!name || !email || !message) {
+      alert.className = "al e";
+      alert.textContent = "Please fill in all fields.";
+      return;
+    }
+    if (!email.includes("@")) {
+      alert.className = "al e";
+      alert.textContent = "Please enter a valid email address.";
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "SENDING...";
+
+    try {
+      await emailjs.send("service_73wv627", "template_03cbv3e", { name, email, message });
+      alert.className = "al s";
+      alert.textContent = "✅ Message sent! We'll get back to you within 24 hours.";
+      document.getElementById("contactName").value = "";
+      document.getElementById("contactEmail").value = "";
+      document.getElementById("contactMessage").value = "";
+    } catch(e) {
+      alert.className = "al e";
+      alert.textContent = "❌ Failed to send. Please email us directly at asuseatsniper@gmail.com";
+    }
+
+    btn.disabled = false;
+    btn.textContent = "SEND MESSAGE";
+  }
 </script>
 
 
