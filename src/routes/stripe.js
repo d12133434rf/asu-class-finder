@@ -2,34 +2,30 @@
 const express = require("express");
 const router = express.Router();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-const db = require("../db");
+const pool = require("../db");
 const { requireAuth } = require("./auth");
 
 const PLANS = {
   bronze: { priceId: process.env.STRIPE_BRONZE_PRICE, name: "Bronze", maxWatches: 1 },
   silver: { priceId: process.env.STRIPE_SILVER_PRICE, name: "Silver", maxWatches: 3 },
-  gold:   { priceId: process.env.STRIPE_GOLD_PRICE,   name: "Gold",   maxWatches: 999 }
+  gold:   { priceId: process.env.STRIPE_GOLD_PRICE,   name: "Gold",   maxWatches: 10 }
 };
 
-// POST /api/subscription/checkout - requires auth
 router.post("/checkout", requireAuth, async (req, res) => {
   const { plan } = req.body;
   const planInfo = PLANS[plan];
   if (!planInfo) return res.status(400).json({ error: "Invalid plan" });
 
-  const user = db.prepare("SELECT * FROM users WHERE id=?").get(req.user.id);
-  if (!user) return res.status(404).json({ error: "User not found" });
-
   try {
+    const userResult = await pool.query("SELECT * FROM users WHERE id=$1", [req.user.id]);
+    const user = userResult.rows[0];
+    if (!user) return res.status(404).json({ error: "User not found" });
+
     let customerId = user.stripe_customer_id;
     if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: user.name,
-        metadata: { userId: String(user.id) }
-      });
+      const customer = await stripe.customers.create({ email: user.email, name: user.name, metadata: { userId: String(user.id) } });
       customerId = customer.id;
-      db.prepare("UPDATE users SET stripe_customer_id=? WHERE id=?").run(customerId, user.id);
+      await pool.query("UPDATE users SET stripe_customer_id=$1 WHERE id=$2", [customerId, user.id]);
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -37,8 +33,8 @@ router.post("/checkout", requireAuth, async (req, res) => {
       payment_method_types: ["card"],
       line_items: [{ price: planInfo.priceId, quantity: 1 }],
       mode: "subscription",
-      success_url: `${process.env.APP_URL || "https://asu-class-finder-production.up.railway.app"}/dashboard?success=true`,
-      cancel_url: `${process.env.APP_URL || "https://asu-class-finder-production.up.railway.app"}/pricing`,
+      success_url: `${process.env.APP_URL || "https://asu-class-finder-production.up.railway.app"}/index.html?success=true`,
+      cancel_url: `${process.env.APP_URL || "https://asu-class-finder-production.up.railway.app"}/index.html`,
       metadata: { userId: String(user.id), plan }
     });
 
@@ -49,15 +45,15 @@ router.post("/checkout", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/subscription/portal
 router.post("/portal", requireAuth, async (req, res) => {
-  const user = db.prepare("SELECT * FROM users WHERE id=?").get(req.user.id);
-  if (!user?.stripe_customer_id) return res.status(404).json({ error: "No subscription found" });
-
   try {
+    const result = await pool.query("SELECT stripe_customer_id FROM users WHERE id=$1", [req.user.id]);
+    const user = result.rows[0];
+    if (!user?.stripe_customer_id) return res.status(404).json({ error: "No subscription found" });
+
     const session = await stripe.billingPortal.sessions.create({
       customer: user.stripe_customer_id,
-      return_url: `${process.env.APP_URL || "https://asu-class-finder-production.up.railway.app"}/dashboard`
+      return_url: `${process.env.APP_URL || "https://asu-class-finder-production.up.railway.app"}/index.html`
     });
     res.json({ url: session.url });
   } catch(e) {
@@ -65,8 +61,7 @@ router.post("/portal", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/subscription/webhook
-router.post("/webhook", express.raw({ type: "application/json" }), (req, res) => {
+router.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
   let event;
   try {
     const sig = req.headers["stripe-signature"];
@@ -84,19 +79,20 @@ router.post("/webhook", express.raw({ type: "application/json" }), (req, res) =>
     const userId = session.metadata?.userId;
     const plan = session.metadata?.plan;
     if (userId && plan) {
-      db.prepare(`
-        UPDATE users SET plan=?, subscription_status='active',
-        stripe_subscription_id=?, max_watches=? WHERE id=?
-      `).run(plan, session.subscription, maxMap[plan] || 1, userId);
+      await pool.query(
+        "UPDATE users SET plan=$1, subscription_status='active', stripe_subscription_id=$2, max_watches=$3 WHERE id=$4",
+        [plan, session.subscription, maxMap[plan] || 1, userId]
+      );
       console.log(`[Stripe] User ${userId} subscribed to ${plan}`);
     }
   }
 
   if (event.type === "customer.subscription.deleted" || event.type === "invoice.payment_failed") {
     const customerId = event.data.object.customer;
-    db.prepare(`UPDATE users SET plan='free', subscription_status='inactive', max_watches=1 WHERE stripe_customer_id=?`)
-      .run(customerId);
-    console.log(`[Stripe] Subscription ended for ${customerId}`);
+    await pool.query(
+      "UPDATE users SET plan='free', subscription_status='inactive', max_watches=0 WHERE stripe_customer_id=$1",
+      [customerId]
+    );
   }
 
   res.json({ received: true });
