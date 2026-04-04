@@ -32,15 +32,13 @@ router.post("/watch", requireAuth, (req, res) => {
   if (existing) return res.status(409).json({ error: "You are already watching this class" });
 
   const count = db.prepare("SELECT COUNT(*) as cnt FROM watchers WHERE user_id=? AND active=1").get(user.id);
-  const maxWatches = user.max_watches || 1;
+  const maxWatches = user.max_watches || 0;
 
   if (count.cnt >= maxWatches) {
-    return res.status(429).json({
-      error: maxWatches === 1
-        ? "Free plan allows 1 class. Upgrade to Bronze, Silver, or Gold to watch more!"
-        : `Your plan allows ${maxWatches} classes. Upgrade for more!`,
-      upgrade: true
-    });
+    if (maxWatches === 0) {
+      return res.status(429).json({ error: "Please subscribe to a plan to start watching classes.", upgrade: true });
+    }
+    return res.status(429).json({ error: `Your plan allows ${maxWatches} class${maxWatches !== 1 ? "es" : ""}. Upgrade for more!`, upgrade: true });
   }
 
   const result = db.prepare(`

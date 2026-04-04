@@ -77,7 +77,7 @@ router.post("/webhook", express.raw({ type: "application/json" }), (req, res) =>
     return res.status(400).send("Webhook error");
   }
 
-  const maxMap = { bronze: 1, silver: 3, gold: 999 };
+  const maxMap = { bronze: 1, silver: 3, gold: 10 };
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;

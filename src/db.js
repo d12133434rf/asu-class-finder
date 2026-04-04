@@ -21,7 +21,7 @@ db.exec(`
     stripe_customer_id TEXT,
     stripe_subscription_id TEXT,
     subscription_status TEXT DEFAULT 'free',
-    max_watches INTEGER DEFAULT 1,
+    max_watches INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
