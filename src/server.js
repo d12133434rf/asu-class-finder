@@ -9,7 +9,7 @@ const app = express();
 app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
 
-// Stripe webhook needs raw body — must be before express.json()
+// Stripe webhook needs raw body first
 app.use("/api/subscription/webhook", express.raw({ type: "application/json" }));
 
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -17,14 +17,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const limiter = rateLimit({ windowMs: 15*60*1000, max: 100, message: { error: "Too many requests" } });
+const limiter = rateLimit({ windowMs: 15*60*1000, max: 200, message: { error: "Too many requests" } });
 app.use("/api/", limiter);
-const watchLimiter = rateLimit({ windowMs: 60*60*1000, max: 10, message: { error: "Too many requests" } });
-app.use("/api/watch", watchLimiter);
 
+app.use("/api/auth", require("./routes/auth"));
 app.use("/api", require("./routes/api"));
 app.use("/api/subscription", require("./routes/stripe"));
 
+// All routes serve the SPA
 app.use(express.static(path.join(__dirname, "../public")));
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "../public/index.html")));
 
