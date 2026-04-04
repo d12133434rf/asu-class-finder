@@ -56,47 +56,6 @@ async function initDb() {
   }
 }
 
-// Convert ? placeholders to $1, $2... for PostgreSQL
-function convertPlaceholders(sql) {
-  let i = 0;
-  return sql.replace(/\?/g, () => `$${++i}`);
-}
-
-// Convert CURRENT_TIMESTAMP and other SQLite-isms
-function convertSql(sql) {
-  return convertPlaceholders(sql)
-    .replace(/CURRENT_TIMESTAMP/g, "NOW()")
-    .replace(/datetime\('now',\s*'([^']+)'\)/g, (_, interval) => {
-      const match = interval.match(/([+-]\d+)\s+(\w+)/);
-      if (match) return `NOW() + INTERVAL '${match[1]} ${match[2]}'`;
-      return "NOW()";
-    })
-    .replace(/INSERT OR IGNORE/g, "INSERT")
-    .replace(/ON CONFLICT\(([^)]+)\) DO UPDATE SET/g, "ON CONFLICT($1) DO UPDATE SET");
-}
-
-// Synchronous-looking API that returns promises
-function prepare(sql) {
-  const pgSql = convertSql(sql);
-  return {
-    run(...params) {
-      return pool.query(pgSql, params).then(r => ({
-        lastInsertRowid: r.rows[0]?.id,
-        changes: r.rowCount
-      }));
-    },
-    get(...params) {
-      return pool.query(pgSql, params).then(r => r.rows[0] || null);
-    },
-    all(...params) {
-      return pool.query(pgSql, params).then(r => r.rows);
-    }
-  };
-}
-
 initDb();
 
 module.exports = pool;
-module.exports.prepare = prepare;
-module.exports.exec = (sql) => pool.query(sql);
-module.exports.query = (sql, params) => pool.query(sql, params);
