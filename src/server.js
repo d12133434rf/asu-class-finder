@@ -26,6 +26,8 @@ app.use("/api/subscription", require("./routes/stripe"));
 
 // All routes serve the SPA
 app.use(express.static(path.join(__dirname, "../public")));
+app.get("/privacy.html", (req, res) => res.sendFile(path.join(__dirname, "../public/privacy.html")));
+app.get("/terms.html", (req, res) => res.sendFile(path.join(__dirname, "../public/terms.html")));
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "../public/index.html")));
 
 app.listen(PORT, () => {
