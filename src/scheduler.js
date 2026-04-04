@@ -1,6 +1,6 @@
-// src/scheduler.js - Runs class checks every minute
+// src/scheduler.js
 const cron = require("node-cron");
-const db = require("./db");
+const pool = require("./db");
 const { checkClass } = require("./checker");
 const { sendOpenAlert } = require("./sms");
 
@@ -9,71 +9,52 @@ let isRunning = false;
 async function runChecks() {
   if (isRunning) return;
   isRunning = true;
-
   try {
-    // Get all active watchers
-    const watchers = db.prepare(`
-      SELECT * FROM watchers WHERE active = 1
-    `).all();
-
-    if (watchers.length === 0) return;
-
+    const result = await pool.query("SELECT * FROM watchers WHERE active=1");
+    const watchers = result.rows;
+    if (!watchers.length) return;
     console.log(`[Scheduler] Checking ${watchers.length} class(es)...`);
 
     for (const watcher of watchers) {
       try {
-        const result = await checkClass(watcher.class_number, watcher.term);
+        const res = await checkClass(watcher.class_number, watcher.term);
+        const now = new Date();
 
-        const now = new Date().toISOString();
-
-        if (!result.found) {
-          db.prepare(`UPDATE watchers SET status='not_found', last_checked=? WHERE id=?`)
-            .run(now, watcher.id);
+        if (!res.found) {
+          await pool.query("UPDATE watchers SET status='not_found', last_checked=$1 WHERE id=$2", [now, watcher.id]);
           continue;
         }
 
         const wasOpen = watcher.status === "open";
-        const isNowOpen = result.isOpen;
-        const newStatus = isNowOpen ? "open" : "closed";
+        const newStatus = res.isOpen ? "open" : "closed";
 
-        db.prepare(`
-          UPDATE watchers
-          SET status=?, enroll_total=?, enroll_cap=?, last_checked=?,
-              class_title=COALESCE(NULLIF(class_title,''), ?)
-          WHERE id=?
-        `).run(newStatus, result.enrollTotal, result.enrollCap, now, result.title || "", watcher.id);
+        await pool.query(
+          "UPDATE watchers SET status=$1, enroll_total=$2, enroll_cap=$3, last_checked=$4 WHERE id=$5",
+          [newStatus, res.enrollTotal, res.enrollCap, now, watcher.id]
+        );
 
-        // Send SMS if class just opened (and hasn't been notified recently)
-        if (isNowOpen && !wasOpen) {
-          // Check if we already notified within the last hour
-          const recentNotif = db.prepare(`
-            SELECT id FROM notifications
-            WHERE watcher_id = ? AND sent_at > datetime('now', '-1 hour')
-          `).get(watcher.id);
-
-          if (!recentNotif) {
-            const updatedWatcher = { ...watcher, ...result, status: newStatus };
-            const sent = await sendOpenAlert(updatedWatcher);
+        if (res.isOpen && !wasOpen) {
+          const recentNotif = await pool.query(
+            "SELECT id FROM notifications WHERE watcher_id=$1 AND sent_at > NOW() - INTERVAL '1 hour'",
+            [watcher.id]
+          );
+          if (!recentNotif.rows.length) {
+            const sent = await sendOpenAlert({ ...watcher, ...res, status: newStatus });
             if (sent) {
-              db.prepare(`INSERT INTO notifications (watcher_id, message) VALUES (?, ?)`)
-                .run(watcher.id, `Class opened: ${result.enrollCap - result.enrollTotal} spots`);
-              db.prepare(`UPDATE watchers SET notified_at=? WHERE id=?`).run(now, watcher.id);
+              await pool.query("INSERT INTO notifications (watcher_id, message) VALUES ($1, $2)", [watcher.id, `Class opened: ${res.enrollCap - res.enrollTotal} spots`]);
+              await pool.query("UPDATE watchers SET notified_at=$1 WHERE id=$2", [now, watcher.id]);
             }
           }
         }
-
       } catch(e) {
-        console.error(`[Scheduler] Error checking #${watcher.class_number}:`, e.message);
+        console.error(`[Scheduler] Error for #${watcher.class_number}:`, e.message);
         if (e.message !== "AUTH_REQUIRED") {
-          db.prepare(`UPDATE watchers SET status='error', last_checked=? WHERE id=?`)
-            .run(new Date().toISOString(), watcher.id);
+          await pool.query("UPDATE watchers SET status='error', last_checked=$1 WHERE id=$2", [new Date(), watcher.id]);
         }
       }
-
-      // Small delay between requests to be nice to ASU's servers
       await new Promise(r => setTimeout(r, 500));
     }
-
+    await pool.query("SELECT NOW()"); // keep connection alive
   } finally {
     isRunning = false;
   }
@@ -82,11 +63,7 @@ async function runChecks() {
 function start() {
   const interval = process.env.CHECK_INTERVAL_MINUTES || "1";
   console.log(`[Scheduler] Starting — checking every ${interval} minute(s)`);
-
-  // Run immediately on start
   runChecks();
-
-  // Then on schedule
   cron.schedule(`*/${interval} * * * *`, runChecks);
 }
 
