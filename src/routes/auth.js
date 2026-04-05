@@ -1,15 +1,24 @@
 // src/routes/auth.js
 const express = require("express");
-const nodemailer = require('nodemailer');
-const transporter = nodemailer.createTransport({
-  host: 'smtp-relay.brevo.com',
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.BREVO_USER,
-    pass: process.env.BREVO_PASS
-  }
-});
+// Brevo HTTP API helper
+async function sendEmail(to, subject, html) {
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "api-key": process.env.BREVO_API_KEY
+    },
+    body: JSON.stringify({
+      sender: { name: "SeatSniper ASU", email: "asuseatsniper@gmail.com" },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(JSON.stringify(data));
+  return data;
+}
 const fetch = require("node-fetch");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
@@ -62,12 +71,11 @@ router.post("/register", async (req, res) => {
     // Send verification email via Resend
     const verifyUrl = `${APP_URL}/verify-email.html?token=${verifyToken}`;
     try {
-      await transporter.sendMail({
-        from: '"SeatSniper ASU" <asuseatsniper@gmail.com>',
-        to: email.toLowerCase(),
-        subject: "Verify your SeatSniper ASU email",
-        html: `<h2>Welcome to SeatSniper, ${name}!</h2><p>Click the link below to verify your email address:</p><p><a href="${verifyUrl}" style="background:#FFC627;color:#5C0F28;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">VERIFY EMAIL</a></p><p>Or copy this link: ${verifyUrl}</p><p>This link expires in 24 hours.</p><p>— SeatSniper ASU</p>`
-      });
+      await sendEmail(
+        email.toLowerCase(),
+        "Verify your SeatSniper ASU email",
+        `<h2>Welcome to SeatSniper, ${name}!</h2><p>Click the link below to verify your email address:</p><p><a href="${verifyUrl}" style="background:#FFC627;color:#5C0F28;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">VERIFY EMAIL</a></p><p>Or copy this link: ${verifyUrl}</p><p>This link expires in 24 hours.</p><p>— SeatSniper ASU</p>`
+      );
       console.log(`[Auth] Verification email sent to ${email}`);
     } catch(emailErr) {
       console.error("[Auth] Failed to send verification email:", emailErr.message);
@@ -172,12 +180,11 @@ router.post("/forgot-password", async (req, res) => {
     // Send email via EmailJS REST API
     // Send reset email via Resend
     console.log(`[Auth] Sending reset email to ${email}`);
-    const emailResult = await transporter.sendMail({
-      from: '"SeatSniper ASU" <asuseatsniper@gmail.com>',
-      to: email.toLowerCase(),
-      subject: "Reset your SeatSniper ASU password",
-      html: `<h2>Password Reset</h2><p>Hi ${user.name || "there"},</p><p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}" style="background:#FFC627;color:#5C0F28;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">RESET PASSWORD</a></p><p>Or copy this link: ${resetUrl}</p><p>If you didn't request this, ignore this email.</p><p>— SeatSniper ASU</p>`
-    });
+    await sendEmail(
+      email.toLowerCase(),
+      "Reset your SeatSniper ASU password",
+      `<h2>Password Reset</h2><p>Hi ${user.name || "there"},</p><p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}" style="background:#FFC627;color:#5C0F28;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">RESET PASSWORD</a></p><p>Or copy this link: ${resetUrl}</p><p>If you didn't request this, ignore this email.</p><p>— SeatSniper ASU</p>`
+    );
     console.log(`[Auth] Reset email sent successfully`);
     res.json({ success: true, message: "If that email exists, a reset link has been sent." });
   } catch(e) {
