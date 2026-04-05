@@ -1,5 +1,6 @@
 // src/routes/auth.js
 const express = require("express");
+const fetch = require("node-fetch");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -127,29 +128,31 @@ router.post("/forgot-password", async (req, res) => {
     ).catch(async () => {
       // Columns don't exist yet, create them
       await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT");
-      await pool.query("ALTER TABLE TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMP");
+      await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMP");
       await pool.query("UPDATE users SET reset_token=$1, reset_token_expires=$2 WHERE id=$3", [token, expires, user.id]);
     });
 
     const resetUrl = `${APP_URL}/reset-password.html?token=${token}`;
 
     // Send email via EmailJS REST API
+    const emailPayload = {
+      service_id: process.env.EMAILJS_SERVICE_ID || "service_73wv627",
+      template_id: process.env.EMAILJS_RESET_TEMPLATE_ID || "template_68ghq8l",
+      user_id: process.env.EMAILJS_PUBLIC_KEY || "dm_155-1Ykocv0LOX",
+      template_params: {
+        to_email: email.toLowerCase(),
+        to_name: user.name || "there",
+        reset_url: resetUrl
+      }
+    };
+    console.log("[Auth] Sending reset email with payload:", JSON.stringify(emailPayload));
     const emailRes = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        service_id: process.env.EMAILJS_SERVICE_ID || "service_73wv627",
-        template_id: process.env.EMAILJS_RESET_TEMPLATE_ID || "template_reset",
-        user_id: process.env.EMAILJS_PUBLIC_KEY || "dm_155-1Ykocv0LOX",
-        template_params: {
-          to_email: email.toLowerCase(),
-          to_name: user.name || "there",
-          reset_url: resetUrl
-        }
-      })
+      body: JSON.stringify(emailPayload)
     });
-
-    console.log(`[Auth] Reset email sent to ${email}, status: ${emailRes.status}`);
+    const emailBody = await emailRes.text();
+    console.log(`[Auth] Reset email status: ${emailRes.status}, body: ${emailBody}`);
     res.json({ success: true, message: "If that email exists, a reset link has been sent." });
   } catch(e) {
     console.error("[Auth] Forgot password error:", e.message);
