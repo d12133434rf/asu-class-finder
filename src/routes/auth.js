@@ -2,15 +2,12 @@
 const express = require("express");
 const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
+  host: 'smtp-relay.brevo.com',
+  port: 587,
+  secure: false,
   auth: {
-    user: process.env.GMAIL_USER || 'asuseatsniper@gmail.com',
-    pass: process.env.GMAIL_PASS
-  },
-  tls: {
-    rejectUnauthorized: false
+    user: process.env.BREVO_USER,
+    pass: process.env.BREVO_PASS
   }
 });
 const fetch = require("node-fetch");
@@ -68,7 +65,7 @@ router.post("/register", async (req, res) => {
       await transporter.sendMail({
         from: '"SeatSniper ASU" <asuseatsniper@gmail.com>',
         to: email.toLowerCase(),
-        subject: "Verify your SeatSniper email",
+        subject: "Verify your SeatSniper ASU email",
         html: `<h2>Welcome to SeatSniper, ${name}!</h2><p>Click the link below to verify your email address:</p><p><a href="${verifyUrl}" style="background:#FFC627;color:#5C0F28;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">VERIFY EMAIL</a></p><p>Or copy this link: ${verifyUrl}</p><p>This link expires in 24 hours.</p><p>— SeatSniper ASU</p>`
       });
       console.log(`[Auth] Verification email sent to ${email}`);
@@ -178,7 +175,7 @@ router.post("/forgot-password", async (req, res) => {
     const emailResult = await transporter.sendMail({
       from: '"SeatSniper ASU" <asuseatsniper@gmail.com>',
       to: email.toLowerCase(),
-      subject: "Reset your SeatSniper password",
+      subject: "Reset your SeatSniper ASU password",
       html: `<h2>Password Reset</h2><p>Hi ${user.name || "there"},</p><p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}" style="background:#FFC627;color:#5C0F28;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">RESET PASSWORD</a></p><p>Or copy this link: ${resetUrl}</p><p>If you didn't request this, ignore this email.</p><p>— SeatSniper ASU</p>`
     });
     console.log(`[Auth] Reset email sent successfully`);
