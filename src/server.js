@@ -26,6 +26,7 @@ app.use("/api/subscription", require("./routes/stripe"));
 
 // All routes serve the SPA
 app.use(express.static(path.join(__dirname, "../public")));
+app.get("/verify-email.html", (req, res) => res.sendFile(path.join(__dirname, "../public/verify-email.html")));
 app.get("/reset-password.html", (req, res) => res.sendFile(path.join(__dirname, "../public/reset-password.html")));
 app.get("/privacy.html", (req, res) => res.sendFile(path.join(__dirname, "../public/privacy.html")));
 app.get("/terms.html", (req, res) => res.sendFile(path.join(__dirname, "../public/terms.html")));
