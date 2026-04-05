@@ -13,47 +13,65 @@ async function runChecks() {
     const result = await pool.query("SELECT * FROM watchers WHERE active=1");
     const watchers = result.rows;
     if (!watchers.length) return;
-    console.log(`[Scheduler] Checking ${watchers.length} class(es)...`);
 
+    // Group watchers by unique class_number + term combination
+    const classMap = new Map();
     for (const watcher of watchers) {
+      const key = `${watcher.class_number}_${watcher.term}`;
+      if (!classMap.has(key)) {
+        classMap.set(key, { classNumber: watcher.class_number, term: watcher.term, watchers: [] });
+      }
+      classMap.get(key).watchers.push(watcher);
+    }
+
+    const uniqueClasses = Array.from(classMap.values());
+    console.log(`[Scheduler] Checking ${uniqueClasses.length} unique class(es) for ${watchers.length} watcher(s)...`);
+
+    for (const { classNumber, term, watchers: classWatchers } of uniqueClasses) {
       try {
-        const res = await checkClass(watcher.class_number, watcher.term);
+        const res = await checkClass(classNumber, term);
         const now = new Date();
+        const newStatus = res.found ? (res.isOpen ? "open" : "closed") : "not_found";
 
-        if (!res.found) {
-          await pool.query("UPDATE watchers SET status='not_found', last_checked=$1 WHERE id=$2", [now, watcher.id]);
-          continue;
-        }
-
-        const wasOpen = watcher.status === "open";
-        const newStatus = res.isOpen ? "open" : "closed";
-
+        // Update ALL watchers of this class at once
         await pool.query(
-          "UPDATE watchers SET status=$1, enroll_total=$2, enroll_cap=$3, last_checked=$4 WHERE id=$5",
-          [newStatus, res.enrollTotal, res.enrollCap, now, watcher.id]
+          `UPDATE watchers SET status=$1, enroll_total=$2, enroll_cap=$3, last_checked=$4 
+           WHERE class_number=$5 AND term=$6 AND active=1`,
+          [newStatus, res.enrollTotal || null, res.enrollCap || null, now, classNumber, term]
         );
 
-        if (res.isOpen && !wasOpen) {
-          const recentNotif = await pool.query(
-            "SELECT id FROM notifications WHERE watcher_id=$1 AND sent_at > NOW() - INTERVAL '1 hour'",
-            [watcher.id]
-          );
-          if (!recentNotif.rows.length) {
-            const sent = await sendOpenAlert({ ...watcher, ...res, status: newStatus });
-            if (sent) {
-              await pool.query("INSERT INTO notifications (watcher_id, message) VALUES ($1, $2)", [watcher.id, `Class opened: ${res.enrollCap - res.enrollTotal} spots`]);
-              await pool.query("UPDATE watchers SET notified_at=$1 WHERE id=$2", [now, watcher.id]);
+        // Notify watchers if class just opened
+        if (res.isOpen) {
+          for (const watcher of classWatchers) {
+            // Only notify if watcher wasn't already open
+            if (watcher.status !== "open") {
+              const recentNotif = await pool.query(
+                "SELECT id FROM notifications WHERE watcher_id=$1 AND sent_at > NOW() - INTERVAL '1 hour'",
+                [watcher.id]
+              );
+              if (!recentNotif.rows.length) {
+                const sent = await sendOpenAlert({ ...watcher, ...res, status: newStatus });
+                if (sent) {
+                  await pool.query("INSERT INTO notifications (watcher_id, message) VALUES ($1, $2)", 
+                    [watcher.id, `Class opened: ${res.enrollCap - res.enrollTotal} spots`]);
+                  await pool.query("UPDATE watchers SET notified_at=$1 WHERE id=$2", [now, watcher.id]);
+                }
+              }
             }
           }
         }
       } catch(e) {
-        console.error(`[Scheduler] Error for #${watcher.class_number}:`, e.message);
+        console.error(`[Scheduler] Error for #${classNumber}:`, e.message);
         if (e.message !== "AUTH_REQUIRED") {
-          await pool.query("UPDATE watchers SET status='error', last_checked=$1 WHERE id=$2", [new Date(), watcher.id]);
+          await pool.query(
+            "UPDATE watchers SET status='error', last_checked=$1 WHERE class_number=$2 AND term=$3 AND active=1",
+            [new Date(), classNumber, term]
+          );
         }
       }
       await new Promise(r => setTimeout(r, 500));
     }
+
     await pool.query("SELECT NOW()"); // keep connection alive
   } finally {
     isRunning = false;
