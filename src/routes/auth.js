@@ -1,5 +1,7 @@
 // src/routes/auth.js
 const express = require("express");
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 const fetch = require("node-fetch");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
@@ -49,22 +51,14 @@ router.post("/register", async (req, res) => {
     });
     const user = result.rows[0];
 
-    // Send verification email
+    // Send verification email via Resend
     const verifyUrl = `${APP_URL}/verify-email.html?token=${verifyToken}`;
     try {
-      await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          service_id: process.env.EMAILJS_SERVICE_ID || "service_73wv627",
-          template_id: process.env.EMAILJS_VERIFY_TEMPLATE_ID || "template_verify",
-          user_id: process.env.EMAILJS_PUBLIC_KEY || "dm_155-1Ykocv0LOX",
-          template_params: {
-            to_email: email.toLowerCase(),
-            to_name: name,
-            verify_url: verifyUrl
-          }
-        })
+      await resend.emails.send({
+        from: "SeatSniper ASU <noreply@resend.dev>",
+        to: email.toLowerCase(),
+        subject: "Verify your SeatSniper email",
+        html: `<h2>Welcome to SeatSniper, ${name}!</h2><p>Click the link below to verify your email address:</p><p><a href="${verifyUrl}" style="background:#FFC627;color:#5C0F28;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">VERIFY EMAIL</a></p><p>Or copy this link: ${verifyUrl}</p><p>This link expires in 24 hours.</p><p>— SeatSniper ASU</p>`
       });
       console.log(`[Auth] Verification email sent to ${email}`);
     } catch(emailErr) {
@@ -168,24 +162,15 @@ router.post("/forgot-password", async (req, res) => {
     const resetUrl = `${APP_URL}/reset-password.html?token=${token}`;
 
     // Send email via EmailJS REST API
-    const emailPayload = {
-      service_id: process.env.EMAILJS_SERVICE_ID || "service_73wv627",
-      template_id: process.env.EMAILJS_RESET_TEMPLATE_ID || "template_68ghq8l",
-      user_id: process.env.EMAILJS_PUBLIC_KEY || "dm_155-1Ykocv0LOX",
-      template_params: {
-        to_email: email.toLowerCase(),
-        to_name: user.name || "there",
-        reset_url: resetUrl
-      }
-    };
-    console.log("[Auth] Sending reset email with payload:", JSON.stringify(emailPayload));
-    const emailRes = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(emailPayload)
+    // Send reset email via Resend
+    console.log(`[Auth] Sending reset email to ${email}`);
+    const emailResult = await resend.emails.send({
+      from: "SeatSniper ASU <noreply@resend.dev>",
+      to: email.toLowerCase(),
+      subject: "Reset your SeatSniper password",
+      html: `<h2>Password Reset</h2><p>Hi ${user.name || "there"},</p><p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}" style="background:#FFC627;color:#5C0F28;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">RESET PASSWORD</a></p><p>Or copy this link: ${resetUrl}</p><p>If you didn't request this, ignore this email.</p><p>— SeatSniper ASU</p>`
     });
-    const emailBody = await emailRes.text();
-    console.log(`[Auth] Reset email status: ${emailRes.status}, body: ${emailBody}`);
+    console.log(`[Auth] Reset email result:`, emailResult);
     res.json({ success: true, message: "If that email exists, a reset link has been sent." });
   } catch(e) {
     console.error("[Auth] Forgot password error:", e.message);
