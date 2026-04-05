@@ -31,15 +31,47 @@ router.post("/register", async (req, res) => {
   if (!email || !password || !name) return res.status(400).json({ error: "Name, email and password required" });
   if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
   try {
-    const existing = await pool.query("SELECT id FROM users WHERE email=$1", [email.toLowerCase()]);
+    const existing = await pool.query("SELECT id, email_verified FROM users WHERE email=$1", [email.toLowerCase()]);
     if (existing.rows.length) return res.status(409).json({ error: "An account with this email already exists" });
     const hashed = await bcrypt.hash(password, 10);
+    const verifyToken = crypto.randomBytes(32).toString("hex");
     const result = await pool.query(
-      "INSERT INTO users (email, password, name, phone) VALUES ($1, $2, $3, $4) RETURNING *",
-      [email.toLowerCase(), hashed, name, phone || null]
-    );
+      "INSERT INTO users (email, password, name, phone, verify_token, email_verified) VALUES ($1, $2, $3, $4, $5, false) RETURNING *",
+      [email.toLowerCase(), hashed, name, phone || null, verifyToken]
+    ).catch(async () => {
+      // Add columns if they don't exist
+      await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token TEXT");
+      await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false");
+      return pool.query(
+        "INSERT INTO users (email, password, name, phone, verify_token, email_verified) VALUES ($1, $2, $3, $4, $5, false) RETURNING *",
+        [email.toLowerCase(), hashed, name, phone || null, verifyToken]
+      );
+    });
     const user = result.rows[0];
-    res.json({ token: generateToken(user), user: { id: user.id, email: user.email, name: user.name, plan: user.plan, phone: user.phone } });
+
+    // Send verification email
+    const verifyUrl = `${APP_URL}/verify-email.html?token=${verifyToken}`;
+    try {
+      await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_id: process.env.EMAILJS_SERVICE_ID || "service_73wv627",
+          template_id: process.env.EMAILJS_VERIFY_TEMPLATE_ID || "template_verify",
+          user_id: process.env.EMAILJS_PUBLIC_KEY || "dm_155-1Ykocv0LOX",
+          template_params: {
+            to_email: email.toLowerCase(),
+            to_name: name,
+            verify_url: verifyUrl
+          }
+        })
+      });
+      console.log(`[Auth] Verification email sent to ${email}`);
+    } catch(emailErr) {
+      console.error("[Auth] Failed to send verification email:", emailErr.message);
+    }
+
+    res.json({ success: true, message: "Account created! Please check your email to verify your account before logging in." });
   } catch(e) {
     console.error("[Auth] Register error:", e.message);
     res.status(500).json({ error: "Registration failed" });
@@ -55,6 +87,7 @@ router.post("/login", async (req, res) => {
     if (!user || !user.password) return res.status(401).json({ error: "Invalid email or password" });
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ error: "Invalid email or password" });
+    if (user.email_verified === false) return res.status(401).json({ error: "Please verify your email before logging in. Check your inbox for the verification link.", needsVerify: true });
     res.json({ token: generateToken(user), user: { id: user.id, email: user.email, name: user.name, plan: user.plan, phone: user.phone } });
   } catch(e) {
     res.status(500).json({ error: "Login failed" });
@@ -184,6 +217,22 @@ router.post("/reset-password", async (req, res) => {
   } catch(e) {
     console.error("[Auth] Reset password error:", e.message);
     res.status(500).json({ error: "Failed to reset password" });
+  }
+});
+
+
+// GET /api/auth/verify-email
+router.get("/verify-email", async (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.status(400).json({ error: "Token required" });
+  try {
+    const result = await pool.query("SELECT id FROM users WHERE verify_token=$1", [token]);
+    const user = result.rows[0];
+    if (!user) return res.status(400).json({ error: "Invalid or expired verification link." });
+    await pool.query("UPDATE users SET email_verified=true, verify_token=NULL WHERE id=$1", [user.id]);
+    res.json({ success: true, message: "Email verified! You can now log in." });
+  } catch(e) {
+    res.status(500).json({ error: "Verification failed" });
   }
 });
 
