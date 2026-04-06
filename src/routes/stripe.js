@@ -35,6 +35,7 @@ router.post("/checkout", requireAuth, async (req, res) => {
       mode: "subscription",
       success_url: `${process.env.APP_URL || "https://asu-class-finder-production.up.railway.app"}/index.html?success=true`,
       cancel_url: `${process.env.APP_URL || "https://asu-class-finder-production.up.railway.app"}/index.html`,
+      allow_promotion_codes: true,
       metadata: { userId: String(user.id), plan }
     });
 
