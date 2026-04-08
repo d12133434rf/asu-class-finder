@@ -3,81 +3,51 @@ const puppeteer = require("puppeteer-core");
 
 const BASE = "https://catalog.apps.asu.edu/catalog/classes/classlist";
 
-let browser = null;
-let sharedPage = null;
-
-async function getBrowser() {
-  if (browser && browser.isConnected()) return browser;
-  console.log("[Checker] Launching browser...");
-  browser = await puppeteer.launch({
-    executablePath: process.env.CHROME_PATH || "/usr/bin/chromium-browser",
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--no-zygote",
-      "--single-process",
-      "--disable-extensions",
-      "--disable-background-networking",
-      "--disable-default-apps",
-      "--disable-sync",
-      "--disable-translate",
-      "--hide-scrollbars",
-      "--metrics-recording-only",
-      "--mute-audio",
-      "--no-first-run",
-      "--safebrowsing-disable-auto-update",
-    ],
-  });
-  console.log("[Checker] Browser launched");
-  return browser;
-}
-
 async function checkClass(classNumber, term) {
   console.log(`[Checker] Fetching class ${classNumber} term ${term}`);
 
   const url = `${BASE}?campusOrOnlineSelection=A&classNbr=${classNumber}&honors=F&promod=F&searchType=all&term=${term}`;
+  const token = process.env.BROWSERLESS_TOKEN || "";
 
-  const b = await getBrowser();
-  const page = await b.newPage();
-
+  let browser = null;
   try {
+    browser = await puppeteer.connect({
+      browserWSEndpoint: `wss://production-sfo.browserless.io?token=${token}&stealth=true`,
+    });
+
+    const page = await browser.newPage();
+
+    // Block unnecessary resources
     await page.setRequestInterception(true);
     page.on("request", (req) => {
       const type = req.resourceType();
-      if (["image", "font", "media"].includes(type)) {
+      if (["image", "font", "media", "stylesheet"].includes(type)) {
         req.abort();
       } else {
         req.continue();
       }
     });
 
-    // Set up response interception BEFORE navigating
+    // Intercept the API response
     let classData = null;
     page.on("response", async (response) => {
       const rUrl = response.url();
       if (rUrl.includes("catalog-microservices") && rUrl.includes("classes")) {
         try {
-          const text = await response.text();
-          console.log(`[Checker] API response status: ${response.status()} length: ${text.length}`);
-          const json = JSON.parse(text);
+          const json = await response.json();
           if (json && json.classes) {
             classData = json;
-            console.log(`[Checker] Got ${json.classes.length} classes`);
+            console.log(`[Checker] Got API data: ${json.classes.length} classes`);
           }
-        } catch(e) {
-          console.log(`[Checker] API parse error: ${e.message}`);
-        }
+        } catch(e) {}
       }
     });
 
     await page.goto(url, { waitUntil: "networkidle0", timeout: 45000 });
-    await new Promise(r => setTimeout(r, 5000));
+    await new Promise(r => setTimeout(r, 3000));
 
     if (!classData) {
-      console.log(`[Checker] No API data intercepted for ${classNumber}`);
+      console.log(`[Checker] No API data for ${classNumber}`);
       return { found: false };
     }
 
@@ -95,7 +65,7 @@ async function checkClass(classNumber, term) {
     return { found: true, isOpen, enrollTotal, enrollCap, title };
 
   } finally {
-    await page.close().catch(() => {});
+    if (browser) await browser.disconnect();
   }
 }
 
