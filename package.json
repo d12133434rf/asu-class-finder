@@ -21,6 +21,6 @@
     "google-auth-library": "^9.0.0",
     "pg": "^8.11.3",
     "https-proxy-agent": "^7.0.2",
-    "cheerio": "^1.0.0"
+    "cheerio": "^1.0.0-rc.12"
   }
 }
