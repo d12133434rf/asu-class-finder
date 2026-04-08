@@ -1,14 +1,25 @@
 // src/checker.js
 const fetch = require("node-fetch");
+const { HttpsProxyAgent } = require("https-proxy-agent");
 
 const BASE = "https://webapp4.asu.edu/catalog/coursedetails";
+
+function getProxyAgent() {
+  const proxyHost = process.env.PROXY_HOST || "gw.dataimpulse.com";
+  const proxyPort = process.env.PROXY_PORT || "823";
+  const proxyUser = process.env.PROXY_USER || "";
+  const proxyPass = process.env.PROXY_PASS || "";
+  return new HttpsProxyAgent(`http://${proxyUser}:${proxyPass}@${proxyHost}:${proxyPort}`);
+}
 
 async function checkClass(classNumber, term) {
   console.log(`[Checker] Fetching class ${classNumber} term ${term}`);
 
   const targetUrl = `${BASE}?r=${classNumber}`;
+  const agent = getProxyAgent();
 
   const res = await fetch(targetUrl, {
+    agent,
     headers: {
       "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -22,23 +33,19 @@ async function checkClass(classNumber, term) {
   const html = await res.text();
   console.log(`[Checker] HTML length: ${html.length}`);
 
-  // Check if it's a React shell (too small)
   if (html.length < 1000) {
-    console.log(`[Checker] Unexpected small response: ${html.substring(0, 200)}`);
+    console.log(`[Checker] Small response: ${html.substring(0, 200)}`);
     throw new Error("UNEXPECTED_RESPONSE");
   }
 
-  // Check for no results
   if (html.includes("were found that matched your criteria") || html.includes("noResults")) {
     console.log(`[Checker] Class ${classNumber} not found`);
     return { found: false };
   }
 
-  // Extract seats like "49 of 100"
   const seatsMatch = html.match(/(\d+)\s+of\s+(\d+)/);
   if (!seatsMatch) {
-    console.log(`[Checker] Could not find seat info in page`);
-    console.log(`[Checker] HTML snippet: ${html.substring(0, 800)}`);
+    console.log(`[Checker] No seat info found, snippet: ${html.substring(0, 500)}`);
     return { found: false };
   }
 
@@ -46,7 +53,6 @@ async function checkClass(classNumber, term) {
   const enrollCap = parseInt(seatsMatch[2]);
   const isOpen = enrollTotal < enrollCap;
 
-  // Try to get title
   const titleMatch = html.match(/<h2[^>]*>([^<]+)/);
   const title = titleMatch ? titleMatch[1].trim().split("-")[0].trim() : "";
 
