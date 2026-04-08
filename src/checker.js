@@ -1,16 +1,7 @@
 // src/checker.js
 const fetch = require("node-fetch");
-const { HttpsProxyAgent } = require("https-proxy-agent");
 
 const BASE = "https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes";
-
-function getProxyAgent() {
-  const proxyHost = process.env.PROXY_HOST || "gw.dataimpulse.com";
-  const proxyPort = process.env.PROXY_PORT || "823";
-  const proxyUser = process.env.PROXY_USER || "";
-  const proxyPass = process.env.PROXY_PASS || "";
-  return new HttpsProxyAgent(`http://${proxyUser}:${proxyPass}@${proxyHost}:${proxyPort}`);
-}
 
 async function checkClass(classNumber, term) {
   console.log(`[Checker] Fetching class ${classNumber} term ${term}`);
@@ -22,13 +13,13 @@ async function checkClass(classNumber, term) {
   });
 
   const targetUrl = `${BASE}?${params}`;
-  const agent = getProxyAgent();
   const cookie = process.env.ASU_COOKIE || "";
+  const token = process.env.ASU_BEARER_TOKEN || "";
 
   const res = await fetch(targetUrl, {
-    agent,
     headers: {
       "Accept": "application/json, text/plain, */*",
+      "Authorization": `Bearer ${token}`,
       "Origin": "https://catalog.apps.asu.edu",
       "Referer": "https://catalog.apps.asu.edu/",
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -39,6 +30,7 @@ async function checkClass(classNumber, term) {
 
   console.log(`[Checker] Response: ${res.status}`);
   if (res.status === 401) throw new Error("AUTH_REQUIRED");
+  if (res.status === 403) throw new Error("AUTH_REQUIRED");
   if (!res.ok) throw new Error(`HTTP_${res.status}`);
 
   const data = await res.json();
