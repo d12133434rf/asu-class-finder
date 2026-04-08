@@ -1,25 +1,29 @@
 // src/checker.js
 const fetch = require("node-fetch");
+const { HttpsProxyAgent } = require("https-proxy-agent");
 
 const BASE = "https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes";
 
 async function checkClass(classNumber, term) {
   console.log(`[Checker] Fetching class ${classNumber} term ${term}`);
-
   const params = new URLSearchParams({
     refine: "Y", term: String(term), classNbr: String(classNumber),
     campusOrOnlineSelection: "A", honors: "F", promod: "F",
     searchType: "all", pageNumber: "1", pageSize: "5"
   });
-
   const targetUrl = `${BASE}?${params}`;
-  const scraperKey = process.env.SCRAPER_API_KEY || "";
   const token = process.env.ASU_BEARER_TOKEN || "";
 
-  // Route through ScraperAPI to bypass IP blocks
-  const proxyUrl = `http://api.scraperapi.com?api_key=${scraperKey}&url=${encodeURIComponent(targetUrl)}`;
+  // DataImpulse residential proxy
+  const proxyHost = process.env.PROXY_HOST || "gw.dataimpulse.com";
+  const proxyPort = process.env.PROXY_PORT || "823";
+  const proxyUser = process.env.PROXY_USER || "";
+  const proxyPass = process.env.PROXY_PASS || "";
+  const proxyUrl  = `http://${proxyUser}:${proxyPass}@${proxyHost}:${proxyPort}`;
+  const agent     = new HttpsProxyAgent(proxyUrl);
 
-  const res = await fetch(proxyUrl, {
+  const res = await fetch(targetUrl, {
+    agent,
     headers: {
       "Accept": "application/json, text/plain, */*",
       "Authorization": `Bearer ${token}`,
@@ -31,7 +35,6 @@ async function checkClass(classNumber, term) {
   });
 
   console.log(`[Checker] Response: ${res.status}`);
-
   if (res.status === 401) throw new Error("AUTH_REQUIRED");
   if (!res.ok) throw new Error(`HTTP_${res.status}`);
 
