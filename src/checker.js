@@ -2,6 +2,55 @@
 const fetch = require("node-fetch");
 
 const BASE = "https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes";
+const TOKEN_URL = "https://weblogin.asu.edu/serviceauth/oauth2/native/token";
+
+let cachedToken = null;
+let tokenExpiry = 0;
+
+async function getToken() {
+  if (cachedToken && Date.now() < tokenExpiry - 60000) {
+    return cachedToken;
+  }
+
+  console.log("[Checker] Refreshing ASU token...");
+  const refreshToken = process.env.ASU_REFRESH_TOKEN || "";
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: "catalog-class-search-app",
+    client_secret: "serviceauth-public-agent"
+  });
+
+  const res = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    },
+    body: body.toString(),
+    timeout: 15000
+  });
+
+  console.log(`[Checker] Token refresh response: ${res.status}`);
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("[Checker] Token refresh error:", text);
+    throw new Error(`TOKEN_REFRESH_FAILED_${res.status}`);
+  }
+
+  const data = await res.json();
+  cachedToken = data.access_token;
+  // Update refresh token if a new one is returned
+  if (data.refresh_token) {
+    process.env.ASU_REFRESH_TOKEN = data.refresh_token;
+    console.log("[Checker] Got new refresh token");
+  }
+  tokenExpiry = Date.now() + (data.expires_in || 600) * 1000;
+  console.log(`[Checker] Token refreshed, expires in ${data.expires_in}s`);
+  return cachedToken;
+}
 
 async function checkClass(classNumber, term) {
   console.log(`[Checker] Fetching class ${classNumber} term ${term}`);
@@ -14,7 +63,14 @@ async function checkClass(classNumber, term) {
 
   const targetUrl = `${BASE}?${params}`;
   const cookie = process.env.ASU_COOKIE || "";
-  const token = process.env.ASU_BEARER_TOKEN || "";
+
+  let token;
+  try {
+    token = await getToken();
+  } catch(e) {
+    console.error("[Checker] Could not get token:", e.message);
+    throw new Error("TOKEN_UNAVAILABLE");
+  }
 
   const res = await fetch(targetUrl, {
     headers: {
@@ -30,14 +86,14 @@ async function checkClass(classNumber, term) {
 
   console.log(`[Checker] Response: ${res.status}`);
   const text = await res.text();
-  console.log(`[Checker] Raw body: ${text.substring(0, 500)}`);
 
-  if (res.status === 401 || res.status === 403) throw new Error("AUTH_REQUIRED");
-  if (!res.ok) throw new Error(`HTTP_${res.status}`);
-
-  if (!text || text.trim() === "") {
-    throw new Error("EMPTY_RESPONSE");
+  if (res.status === 401 || res.status === 403) {
+    cachedToken = null;
+    tokenExpiry = 0;
+    throw new Error("AUTH_REQUIRED");
   }
+  if (!res.ok) throw new Error(`HTTP_${res.status}`);
+  if (!text || text.trim() === "") throw new Error("EMPTY_RESPONSE");
 
   const data = JSON.parse(text);
   const classes = data?.classes ?? [];
