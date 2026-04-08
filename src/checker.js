@@ -1,21 +1,12 @@
 // src/checker.js
 const fetch = require("node-fetch");
 
-const BASE = "https://webapp4.asu.edu/catalog/classlist";
+const BASE = "https://webapp4.asu.edu/catalog/coursedetails";
 
 async function checkClass(classNumber, term) {
   console.log(`[Checker] Fetching class ${classNumber} term ${term}`);
 
-  const params = new URLSearchParams({
-    strm: String(term),
-    classNbr: String(classNumber),
-    hon: "F",
-    promod: "F",
-    searchType: "all",
-    seats: "F"
-  });
-
-  const targetUrl = `${BASE}?${params}`;
+  const targetUrl = `${BASE}?r=${classNumber}`;
 
   const res = await fetch(targetUrl, {
     headers: {
@@ -31,46 +22,35 @@ async function checkClass(classNumber, term) {
   const html = await res.text();
   console.log(`[Checker] HTML length: ${html.length}`);
 
-  // If we got a tiny response it's not the real page
+  // Check if it's a React shell (too small)
   if (html.length < 1000) {
-    console.log(`[Checker] Page too small, likely redirect: ${html.substring(0, 200)}`);
+    console.log(`[Checker] Unexpected small response: ${html.substring(0, 200)}`);
     throw new Error("UNEXPECTED_RESPONSE");
   }
 
-  // Check if class number appears in the page
-  if (!html.includes(String(classNumber))) {
-    console.log(`[Checker] Class ${classNumber} not found in page`);
+  // Check for no results
+  if (html.includes("were found that matched your criteria") || html.includes("noResults")) {
+    console.log(`[Checker] Class ${classNumber} not found`);
     return { found: false };
   }
 
-  // Look for open seats — webapp4 uses iconOpenClass or similar
-  // Find the section around our class number
-  const classIndex = html.indexOf(String(classNumber));
-  const surrounding = html.substring(Math.max(0, classIndex - 1000), classIndex + 2000);
-
-  // Log snippet so we can see the HTML structure
-  console.log(`[Checker] HTML snippet: ${surrounding.substring(0, 600)}`);
-
-  // Check for open/closed indicators
-  const isOpen = surrounding.includes("iconOpenClass") ||
-                 surrounding.includes("open_class") ||
-                 surrounding.includes("class_open") ||
-                 surrounding.includes("Open") && !surrounding.includes("Closed");
-
-  // Try to find enrollment like "49 of 100" or "49/100"
-  let enrollTotal = 0, enrollCap = 0;
-  const enrollMatch = surrounding.match(/(\d+)\s+of\s+(\d+)/i) ||
-                      surrounding.match(/(\d+)\/(\d+)/);
-  if (enrollMatch) {
-    enrollTotal = parseInt(enrollMatch[1]);
-    enrollCap = parseInt(enrollMatch[2]);
+  // Extract seats like "49 of 100"
+  const seatsMatch = html.match(/(\d+)\s+of\s+(\d+)/);
+  if (!seatsMatch) {
+    console.log(`[Checker] Could not find seat info in page`);
+    console.log(`[Checker] HTML snippet: ${html.substring(0, 800)}`);
+    return { found: false };
   }
 
-  // Try to get title
-  const titleMatch = surrounding.match(/<td[^>]*>([A-Z][^<]{5,60})<\/td>/);
-  const title = titleMatch ? titleMatch[1].trim() : "";
+  const enrollTotal = parseInt(seatsMatch[1]);
+  const enrollCap = parseInt(seatsMatch[2]);
+  const isOpen = enrollTotal < enrollCap;
 
-  console.log(`[Checker] ${classNumber}: found=true open=${isOpen} ${enrollTotal}/${enrollCap}`);
+  // Try to get title
+  const titleMatch = html.match(/<h2[^>]*>([^<]+)/);
+  const title = titleMatch ? titleMatch[1].trim().split("-")[0].trim() : "";
+
+  console.log(`[Checker] ${classNumber}: ${enrollTotal}/${enrollCap} open=${isOpen} title=${title}`);
   return { found: true, isOpen, enrollTotal, enrollCap, title };
 }
 
