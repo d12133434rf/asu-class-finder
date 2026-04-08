@@ -1,13 +1,14 @@
 // src/checker.js
 const puppeteer = require("puppeteer-core");
 
-const BASE = "https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes";
 const PAGE_URL = "https://catalog.apps.asu.edu/catalog/classes/classlist?campusOrOnlineSelection=A&classNbr=64766&honors=F&promod=F&searchType=all&term=2281";
+const BASE = "https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes";
 
 async function connectBrowser() {
   const token = process.env.BROWSERLESS_TOKEN || "";
+  // Use residential proxy + stealth mode
   return await puppeteer.connect({
-    browserWSEndpoint: `wss://production-sfo.browserless.io?token=${token}&stealth=true`,
+    browserWSEndpoint: `wss://production-sfo.browserless.io?token=${token}&stealth=true&proxy=residential`,
   });
 }
 
@@ -35,29 +36,41 @@ async function checkClass(classNumber, term) {
       }
     });
 
-    // Load the page to get auth token
-    await page.goto(PAGE_URL, { waitUntil: "networkidle0", timeout: 45000 });
-    await new Promise(r => setTimeout(r, 3000));
-
-    console.log(`[Checker] Token captured: ${!!capturedToken}`);
-
-    if (!capturedToken) {
-      console.log("[Checker] No token captured, cannot proceed");
-      await page.close();
-      return { found: false };
-    }
-
-    // Now make the API call directly from within the page context
-    // This runs inside the browser, so same origin/cookies apply
-    const params = new URLSearchParams({
-      refine: "Y", term: String(term), classNbr: String(classNumber),
-      campusOrOnlineSelection: "A", honors: "F", promod: "F",
-      searchType: "all", pageNumber: "1", pageSize: "5"
+    // Also try to intercept the actual API response directly
+    let classData = null;
+    page.on("response", async (response) => {
+      const rUrl = response.url();
+      if (rUrl.includes("catalog-microservices") && rUrl.includes("classes")) {
+        try {
+          const text = await response.text();
+          console.log(`[Checker] Intercepted API: status=${response.status()} len=${text.length}`);
+          if (text && text.length > 10) {
+            classData = JSON.parse(text);
+          }
+        } catch(e) {}
+      }
     });
 
-    const apiUrl = `${BASE}?${params}`;
-    const result = await page.evaluate(async (url, token) => {
-      try {
+    await page.goto(PAGE_URL, { waitUntil: "networkidle0", timeout: 60000 });
+    await new Promise(r => setTimeout(r, 5000));
+
+    console.log(`[Checker] Token=${!!capturedToken} classData=${!!classData}`);
+
+    // If we got class data from interception, use it directly for this class
+    if (classData && classData.classes) {
+      console.log(`[Checker] Using intercepted data`);
+    }
+
+    // Make direct API call from within browser using captured token
+    if (capturedToken) {
+      const params = new URLSearchParams({
+        refine: "Y", term: String(term), classNbr: String(classNumber),
+        campusOrOnlineSelection: "A", honors: "F", promod: "F",
+        searchType: "all", pageNumber: "1", pageSize: "5"
+      });
+      const apiUrl = `${BASE}?${params}`;
+
+      const result = await page.evaluate(async (url, token) => {
         const res = await fetch(url, {
           headers: {
             "Accept": "application/json, text/plain, */*",
@@ -68,22 +81,22 @@ async function checkClass(classNumber, term) {
         });
         const text = await res.text();
         return { status: res.status, body: text };
-      } catch(e) {
-        return { error: e.message };
-      }
-    }, apiUrl, capturedToken);
+      }, apiUrl, capturedToken);
 
-    console.log(`[Checker] Direct API call status: ${result.status}, body length: ${result.body?.length}`);
-    console.log(`[Checker] Body preview: ${result.body?.substring(0, 200)}`);
+      console.log(`[Checker] API call: status=${result.status} len=${result.body?.length}`);
+
+      if (result.body && result.body.length > 10) {
+        classData = JSON.parse(result.body);
+      }
+    }
 
     await page.close();
 
-    if (!result.body || result.status !== 200) {
+    if (!classData || !classData.classes) {
       return { found: false };
     }
 
-    const data = JSON.parse(result.body);
-    const classes = data?.classes ?? [];
+    const classes = classData.classes;
     if (!classes.length) return { found: false };
 
     const match = classes[0];
