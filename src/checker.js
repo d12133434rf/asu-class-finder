@@ -2,7 +2,7 @@
 const fetch = require("node-fetch");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 
-const BASE = "https://webapp4.asu.edu/catalog/classlist";
+const BASE = "https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes";
 
 function getProxyAgent() {
   const proxyHost = process.env.PROXY_HOST || "gw.dataimpulse.com";
@@ -16,34 +16,45 @@ async function checkClass(classNumber, term) {
   console.log(`[Checker] Fetching class ${classNumber} term ${term}`);
 
   const params = new URLSearchParams({
-    strm: String(term),
-    classNbr: String(classNumber),
-    hon: "F",
-    promod: "F",
-    searchType: "all",
-    seats: "F"
+    refine: "Y", term: String(term), classNbr: String(classNumber),
+    campusOrOnlineSelection: "A", honors: "F", promod: "F",
+    searchType: "all", pageNumber: "1", pageSize: "5"
   });
 
   const targetUrl = `${BASE}?${params}`;
   const agent = getProxyAgent();
+  const cookies = process.env.ASU_COOKIES || "";
 
   const res = await fetch(targetUrl, {
     agent,
     headers: {
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept": "application/json, text/plain, */*",
+      "Cookie": cookies,
+      "Origin": "https://classSearch.asu.edu",
+      "Referer": "https://classSearch.asu.edu/",
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     },
     timeout: 30000
   });
 
   console.log(`[Checker] Response: ${res.status}`);
+  if (res.status === 401) throw new Error("AUTH_REQUIRED");
   if (!res.ok) throw new Error(`HTTP_${res.status}`);
 
-  const html = await res.text();
-  console.log(`[Checker] HTML length: ${html.length}`);
-  console.log(`[Checker] Full HTML: ${html}`);
+  const data = await res.json();
+  const classes = data?.classes ?? [];
+  console.log(`[Checker] Classes found: ${classes.length}`);
+  if (!classes.length) return { found: false };
 
-  return { found: false };
+  const match = classes[0];
+  const enrollTotal = parseInt(match.ENRL_TOT ?? "0", 10);
+  const enrollCap   = parseInt(match.ENRL_CAP ?? "0", 10);
+  const classStatus = match.CLASS_STAT ?? "";
+  const title       = match.COURSE_TITLE ?? "";
+  const isOpen      = enrollTotal < enrollCap && classStatus === "A";
+
+  console.log(`[Checker] ${classNumber}: ${enrollTotal}/${enrollCap} status=${classStatus} open=${isOpen}`);
+  return { found: true, isOpen, enrollTotal, enrollCap, title };
 }
 
 async function fetchTerms() {
