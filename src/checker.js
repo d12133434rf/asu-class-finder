@@ -12,7 +12,6 @@ async function checkClass(classNumber, term) {
     searchType: "all", pageNumber: "1", pageSize: "5"
   });
   const targetUrl = `${BASE}?${params}`;
-  const token = process.env.ASU_BEARER_TOKEN || "";
 
   // DataImpulse residential proxy
   const proxyHost = process.env.PROXY_HOST || "gw.dataimpulse.com";
@@ -26,7 +25,6 @@ async function checkClass(classNumber, term) {
     agent,
     headers: {
       "Accept": "application/json, text/plain, */*",
-      "Authorization": `Bearer ${token}`,
       "Origin": "https://classSearch.asu.edu",
       "Referer": "https://classSearch.asu.edu/",
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
