@@ -41,40 +41,9 @@ async function checkClass(classNumber, term) {
 
   const html = await res.text();
   console.log(`[Checker] HTML length: ${html.length}`);
+  console.log(`[Checker] Full HTML: ${html}`);
 
-  // Check if we got redirected to a login page
-  if (html.includes("weblogin.asu.edu") || html.includes("Sign In") && html.length < 5000) {
-    throw new Error("AUTH_REQUIRED");
-  }
-
-  // Check if class number appears in the page
-  if (!html.includes(String(classNumber))) {
-    console.log(`[Checker] Class ${classNumber} not found in page`);
-    return { found: false };
-  }
-
-  // Look for open seats indicator — ASU uses "open" class or green dot
-  const classIndex = html.indexOf(String(classNumber));
-  const surrounding = html.substring(Math.max(0, classIndex - 500), classIndex + 1000);
-
-  const isOpen = surrounding.includes('class-open') ||
-                 surrounding.includes('open-seats') ||
-                 surrounding.includes('"open"') ||
-                 surrounding.includes('iconOpenClass') ||
-                 surrounding.includes('seats available');
-
-  // Try to find enrollment numbers like "49 of 100"
-  let enrollTotal = 0, enrollCap = 0;
-  const enrollMatch = surrounding.match(/(\d+)\s+of\s+(\d+)/);
-  if (enrollMatch) {
-    enrollTotal = parseInt(enrollMatch[1]);
-    enrollCap = parseInt(enrollMatch[2]);
-  }
-
-  console.log(`[Checker] ${classNumber}: found=true open=${isOpen} ${enrollTotal}/${enrollCap}`);
-  console.log(`[Checker] Surrounding HTML snippet: ${surrounding.substring(0, 300)}`);
-
-  return { found: true, isOpen, enrollTotal, enrollCap, title: "" };
+  return { found: false };
 }
 
 async function fetchTerms() {
