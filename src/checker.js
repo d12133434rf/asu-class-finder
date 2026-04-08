@@ -23,16 +23,16 @@ async function checkClass(classNumber, term) {
 
   const targetUrl = `${BASE}?${params}`;
   const agent = getProxyAgent();
-  const cookies = process.env.ASU_COOKIES || "";
+  const cookie = process.env.ASU_COOKIE || "";
 
   const res = await fetch(targetUrl, {
     agent,
     headers: {
       "Accept": "application/json, text/plain, */*",
-      "Cookie": cookies,
-      "Origin": "https://classSearch.asu.edu",
-      "Referer": "https://classSearch.asu.edu/",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+      "Origin": "https://catalog.apps.asu.edu",
+      "Referer": "https://catalog.apps.asu.edu/",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Cookie": cookie
     },
     timeout: 30000
   });
