@@ -44,7 +44,6 @@ async function checkClass(classNumber, term) {
     const b = await getBrowser();
     page = await b.newPage();
 
-    // Block images, fonts, stylesheets to save memory
     await page.setRequestInterception(true);
     page.on("request", (req) => {
       const type = req.resourceType();
@@ -56,29 +55,25 @@ async function checkClass(classNumber, term) {
     });
 
     await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
-
-    // Wait for class data to load
-    await page.waitForSelector(".class-info, .no-results, [class*='class']", { timeout: 15000 }).catch(() => {});
+    await page.waitForSelector("body", { timeout: 15000 }).catch(() => {});
 
     const html = await page.content();
-    console.log(`[Checker] HTML length: ${html.length}`);
 
-    // Look for seat info "X of Y"
-    const seatsMatch = html.match(/(\d+)\s+of\s+(\d+)/);
-    if (!seatsMatch) {
-      console.log(`[Checker] No seat info found for ${classNumber}`);
-      return { found: false };
+    // Log a chunk around enrollment-related keywords
+    const keywords = ["seat", "enroll", "open", "avail", "of ", "Seat", "Enroll", "Open"];
+    for (const kw of keywords) {
+      const idx = html.indexOf(kw);
+      if (idx > -1) {
+        console.log(`[Checker] Found "${kw}" at ${idx}: ...${html.substring(idx - 50, idx + 150)}...`);
+        break;
+      }
     }
 
-    const enrollTotal = parseInt(seatsMatch[1]);
-    const enrollCap = parseInt(seatsMatch[2]);
-    const isOpen = enrollTotal < enrollCap;
+    // Also log a chunk of the middle of the page
+    const mid = Math.floor(html.length / 2);
+    console.log(`[Checker] Mid-page snippet: ${html.substring(mid, mid + 500)}`);
 
-    const titleMatch = html.match(/<h2[^>]*>([^<]+)/);
-    const title = titleMatch ? titleMatch[1].trim().split("-")[0].trim() : "";
-
-    console.log(`[Checker] ${classNumber}: ${enrollTotal}/${enrollCap} open=${isOpen}`);
-    return { found: true, isOpen, enrollTotal, enrollCap, title };
+    return { found: false };
 
   } finally {
     if (page) await page.close().catch(() => {});
