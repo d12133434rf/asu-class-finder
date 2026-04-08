@@ -47,31 +47,47 @@ async function checkClass(classNumber, term) {
     await page.setRequestInterception(true);
     page.on("request", (req) => {
       const type = req.resourceType();
-      if (["image", "stylesheet", "font", "media"].includes(type)) {
+      if (["image", "font", "media"].includes(type)) {
         req.abort();
       } else {
         req.continue();
       }
     });
 
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
-    await page.waitForSelector("body", { timeout: 15000 }).catch(() => {});
+    await page.goto(url, { waitUntil: "networkidle0", timeout: 45000 });
+
+    // Wait extra time for React to render class data
+    await new Promise(r => setTimeout(r, 5000));
 
     const html = await page.content();
+    console.log(`[Checker] HTML length: ${html.length}`);
 
-    // Log a chunk around enrollment-related keywords
-    const keywords = ["seat", "enroll", "open", "avail", "of ", "Seat", "Enroll", "Open"];
-    for (const kw of keywords) {
-      const idx = html.indexOf(kw);
-      if (idx > -1) {
-        console.log(`[Checker] Found "${kw}" at ${idx}: ...${html.substring(idx - 50, idx + 150)}...`);
-        break;
+    // Search for seat patterns
+    const patterns = [
+      /(\d+)\s*of\s*(\d+)\s*seat/i,
+      /(\d+)\s*\/\s*(\d+)\s*seat/i,
+      /seats?\s*available[:\s]*(\d+)/i,
+      /ENRL_TOT['":\s]+(\d+)/i,
+      /(\d+)\s*open\s*seat/i,
+      /open seats?[:\s]*(\d+)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match) {
+        console.log(`[Checker] Matched pattern ${pattern}: ${match[0]}`);
       }
     }
 
-    // Also log a chunk of the middle of the page
-    const mid = Math.floor(html.length / 2);
-    console.log(`[Checker] Mid-page snippet: ${html.substring(mid, mid + 500)}`);
+    // Log any text containing numbers near "seat" or "open"
+    const seatIdx = html.search(/\d+\s*(of|\/)\s*\d+/);
+    if (seatIdx > -1) {
+      console.log(`[Checker] Number pattern found: ${html.substring(seatIdx - 100, seatIdx + 100)}`);
+    } else {
+      console.log(`[Checker] No number pattern found`);
+      // Log end of page which usually has rendered content
+      console.log(`[Checker] End of page: ${html.substring(html.length - 1000)}`);
+    }
 
     return { found: false };
 
