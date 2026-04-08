@@ -20,7 +20,6 @@
     "jsonwebtoken": "^9.0.2",
     "google-auth-library": "^9.0.0",
     "pg": "^8.11.3",
-    "https-proxy-agent": "^7.0.2",
     "puppeteer-core": "^21.0.0"
   }
 }
