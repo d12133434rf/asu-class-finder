@@ -4,6 +4,7 @@ const puppeteer = require("puppeteer-core");
 const BASE = "https://catalog.apps.asu.edu/catalog/classes/classlist";
 
 let browser = null;
+let interceptedToken = null;
 
 async function getBrowser() {
   if (browser && browser.isConnected()) return browser;
@@ -34,15 +35,50 @@ async function getBrowser() {
   return browser;
 }
 
+function parseCookieString(cookieStr) {
+  return cookieStr.split(";").map(pair => {
+    const [name, ...rest] = pair.trim().split("=");
+    return {
+      name: name.trim(),
+      value: rest.join("=").trim(),
+      domain: ".asu.edu",
+      path: "/",
+    };
+  }).filter(c => c.name && c.value);
+}
+
 async function checkClass(classNumber, term) {
   console.log(`[Checker] Fetching class ${classNumber} term ${term}`);
 
   const url = `${BASE}?campusOrOnlineSelection=A&classNbr=${classNumber}&honors=F&promod=F&searchType=all&term=${term}`;
+  const cookieStr = process.env.ASU_COOKIE || "";
 
   let page = null;
   try {
     const b = await getBrowser();
     page = await b.newPage();
+
+    // Set cookies before navigation
+    if (cookieStr) {
+      const cookies = parseCookieString(cookieStr);
+      await page.setCookie(...cookies);
+      console.log(`[Checker] Set ${cookies.length} cookies`);
+    }
+
+    // Intercept API calls to capture the Bearer token and class data
+    let classData = null;
+    page.on("response", async (response) => {
+      const url = response.url();
+      if (url.includes("catalog-microservices") && url.includes("classes")) {
+        try {
+          const json = await response.json();
+          if (json && json.classes) {
+            classData = json;
+            console.log(`[Checker] Intercepted API response with ${json.classes.length} classes`);
+          }
+        } catch(e) {}
+      }
+    });
 
     await page.setRequestInterception(true);
     page.on("request", (req) => {
@@ -55,41 +91,25 @@ async function checkClass(classNumber, term) {
     });
 
     await page.goto(url, { waitUntil: "networkidle0", timeout: 45000 });
-
-    // Wait extra time for React to render class data
     await new Promise(r => setTimeout(r, 5000));
 
-    const html = await page.content();
-    console.log(`[Checker] HTML length: ${html.length}`);
-
-    // Search for seat patterns
-    const patterns = [
-      /(\d+)\s*of\s*(\d+)\s*seat/i,
-      /(\d+)\s*\/\s*(\d+)\s*seat/i,
-      /seats?\s*available[:\s]*(\d+)/i,
-      /ENRL_TOT['":\s]+(\d+)/i,
-      /(\d+)\s*open\s*seat/i,
-      /open seats?[:\s]*(\d+)/i,
-    ];
-
-    for (const pattern of patterns) {
-      const match = html.match(pattern);
-      if (match) {
-        console.log(`[Checker] Matched pattern ${pattern}: ${match[0]}`);
-      }
+    if (!classData) {
+      console.log(`[Checker] No API data intercepted for ${classNumber}`);
+      return { found: false };
     }
 
-    // Log any text containing numbers near "seat" or "open"
-    const seatIdx = html.search(/\d+\s*(of|\/)\s*\d+/);
-    if (seatIdx > -1) {
-      console.log(`[Checker] Number pattern found: ${html.substring(seatIdx - 100, seatIdx + 100)}`);
-    } else {
-      console.log(`[Checker] No number pattern found`);
-      // Log end of page which usually has rendered content
-      console.log(`[Checker] End of page: ${html.substring(html.length - 1000)}`);
-    }
+    const classes = classData.classes ?? [];
+    if (!classes.length) return { found: false };
 
-    return { found: false };
+    const match = classes[0];
+    const enrollTotal = parseInt(match.ENRL_TOT ?? "0", 10);
+    const enrollCap   = parseInt(match.ENRL_CAP ?? "0", 10);
+    const classStatus = match.CLASS_STAT ?? "";
+    const title       = match.COURSE_TITLE ?? "";
+    const isOpen      = enrollTotal < enrollCap && classStatus === "A";
+
+    console.log(`[Checker] ${classNumber}: ${enrollTotal}/${enrollCap} status=${classStatus} open=${isOpen}`);
+    return { found: true, isOpen, enrollTotal, enrollCap, title };
 
   } finally {
     if (page) await page.close().catch(() => {});
