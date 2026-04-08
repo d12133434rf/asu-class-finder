@@ -29,11 +29,17 @@ async function checkClass(classNumber, term) {
   });
 
   console.log(`[Checker] Response: ${res.status}`);
-  if (res.status === 401) throw new Error("AUTH_REQUIRED");
-  if (res.status === 403) throw new Error("AUTH_REQUIRED");
+  const text = await res.text();
+  console.log(`[Checker] Raw body: ${text.substring(0, 500)}`);
+
+  if (res.status === 401 || res.status === 403) throw new Error("AUTH_REQUIRED");
   if (!res.ok) throw new Error(`HTTP_${res.status}`);
 
-  const data = await res.json();
+  if (!text || text.trim() === "") {
+    throw new Error("EMPTY_RESPONSE");
+  }
+
+  const data = JSON.parse(text);
   const classes = data?.classes ?? [];
   console.log(`[Checker] Classes found: ${classes.length}`);
   if (!classes.length) return { found: false };
