@@ -1,63 +1,88 @@
 // src/checker.js
-const fetch = require("node-fetch");
-const { HttpsProxyAgent } = require("https-proxy-agent");
+const puppeteer = require("puppeteer-core");
 
-const BASE = "https://webapp4.asu.edu/catalog/coursedetails";
+const BASE = "https://catalog.apps.asu.edu/catalog/classes/classlist";
 
-function getProxyAgent() {
-  const proxyHost = process.env.PROXY_HOST || "gw.dataimpulse.com";
-  const proxyPort = process.env.PROXY_PORT || "823";
-  const proxyUser = process.env.PROXY_USER || "";
-  const proxyPass = process.env.PROXY_PASS || "";
-  return new HttpsProxyAgent(`http://${proxyUser}:${proxyPass}@${proxyHost}:${proxyPort}`);
+let browser = null;
+
+async function getBrowser() {
+  if (browser && browser.isConnected()) return browser;
+  console.log("[Checker] Launching browser...");
+  browser = await puppeteer.launch({
+    executablePath: process.env.CHROME_PATH || "/usr/bin/chromium-browser",
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--no-zygote",
+      "--single-process",
+      "--disable-extensions",
+      "--disable-background-networking",
+      "--disable-default-apps",
+      "--disable-sync",
+      "--disable-translate",
+      "--hide-scrollbars",
+      "--metrics-recording-only",
+      "--mute-audio",
+      "--no-first-run",
+      "--safebrowsing-disable-auto-update",
+    ],
+  });
+  console.log("[Checker] Browser launched");
+  return browser;
 }
 
 async function checkClass(classNumber, term) {
   console.log(`[Checker] Fetching class ${classNumber} term ${term}`);
 
-  const targetUrl = `${BASE}?r=${classNumber}`;
-  const agent = getProxyAgent();
+  const url = `${BASE}?campusOrOnlineSelection=A&classNbr=${classNumber}&honors=F&promod=F&searchType=all&term=${term}`;
 
-  const res = await fetch(targetUrl, {
-    agent,
-    headers: {
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    },
-    timeout: 30000
-  });
+  let page = null;
+  try {
+    const b = await getBrowser();
+    page = await b.newPage();
 
-  console.log(`[Checker] Response: ${res.status}`);
-  if (!res.ok) throw new Error(`HTTP_${res.status}`);
+    // Block images, fonts, stylesheets to save memory
+    await page.setRequestInterception(true);
+    page.on("request", (req) => {
+      const type = req.resourceType();
+      if (["image", "stylesheet", "font", "media"].includes(type)) {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
 
-  const html = await res.text();
-  console.log(`[Checker] HTML length: ${html.length}`);
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
-  if (html.length < 1000) {
-    console.log(`[Checker] Small response: ${html.substring(0, 200)}`);
-    throw new Error("UNEXPECTED_RESPONSE");
+    // Wait for class data to load
+    await page.waitForSelector(".class-info, .no-results, [class*='class']", { timeout: 15000 }).catch(() => {});
+
+    const html = await page.content();
+    console.log(`[Checker] HTML length: ${html.length}`);
+
+    // Look for seat info "X of Y"
+    const seatsMatch = html.match(/(\d+)\s+of\s+(\d+)/);
+    if (!seatsMatch) {
+      console.log(`[Checker] No seat info found for ${classNumber}`);
+      return { found: false };
+    }
+
+    const enrollTotal = parseInt(seatsMatch[1]);
+    const enrollCap = parseInt(seatsMatch[2]);
+    const isOpen = enrollTotal < enrollCap;
+
+    const titleMatch = html.match(/<h2[^>]*>([^<]+)/);
+    const title = titleMatch ? titleMatch[1].trim().split("-")[0].trim() : "";
+
+    console.log(`[Checker] ${classNumber}: ${enrollTotal}/${enrollCap} open=${isOpen}`);
+    return { found: true, isOpen, enrollTotal, enrollCap, title };
+
+  } finally {
+    if (page) await page.close().catch(() => {});
   }
-
-  if (html.includes("were found that matched your criteria") || html.includes("noResults")) {
-    console.log(`[Checker] Class ${classNumber} not found`);
-    return { found: false };
-  }
-
-  const seatsMatch = html.match(/(\d+)\s+of\s+(\d+)/);
-  if (!seatsMatch) {
-    console.log(`[Checker] No seat info found, snippet: ${html.substring(0, 500)}`);
-    return { found: false };
-  }
-
-  const enrollTotal = parseInt(seatsMatch[1]);
-  const enrollCap = parseInt(seatsMatch[2]);
-  const isOpen = enrollTotal < enrollCap;
-
-  const titleMatch = html.match(/<h2[^>]*>([^<]+)/);
-  const title = titleMatch ? titleMatch[1].trim().split("-")[0].trim() : "";
-
-  console.log(`[Checker] ${classNumber}: ${enrollTotal}/${enrollCap} open=${isOpen} title=${title}`);
-  return { found: true, isOpen, enrollTotal, enrollCap, title };
 }
 
 async function fetchTerms() {
